@@ -1,0 +1,14 @@
+{
+  "name": "webtransport-go",
+  "version": "0.0.1",
+  "description": "webtransport go 实现",
+  "scripts": {
+    "serve": "cd ./example && edp webserver start --port=9000"
+  },
+  "author": "zhaogaoxing",
+  "license": "ISC",
+  "devDependencies": {
+    "edp": "^1.1.2",
+    "edp-webserver": "^1.2.11"
+  }
+}

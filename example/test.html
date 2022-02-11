@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>test</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+      }
+    </style>
+</head>
+<body>
+  
+</body>
+<script>
+    const url = 'https://172.31.100.22:4433/counter';
+    // const url = 'https://localhost:4433/counter';
+    const transport = new WebTransport(url);
+    transport.closed.then(() => {
+        console.log(`The HTTP/3 connection to ${url} closed gracefully.`);
+    }).catch((error) => {
+        console.error(`The HTTP/3 connection to ${url} closed due to ${error}.`);
+    });
+
+    // const transport2 = new WebTransport(url);
+    
+    let datagramReader;
+    let datagramWriter;
+    let bidReader;
+    let bidWriter;
+    let uniReader;
+    let uniWriter;
+
+    const textEncoder = new TextEncoder();
+    const textDecoder = new TextDecoder();
+
+    async function _read(reader, tag) {
+        while (true) {
+            const {value, done} = await reader.read();
+            if (done) {
+                break;
+            }
+            // 值为 Uint8Array。
+            console.log(tag, textDecoder.decode(value));
+        }
+    }
+
+    async function read() {
+        _read(datagramReader, 'datagramReader')
+        _read(bidReader, 'bidReader')
+        // _read(uniReader, 'uniReader')
+    } 
+
+    async function write() {
+        // uniWriter.write(textEncoder.encode('hello'))
+        uniWriter.write(textEncoder.encode('123'))
+        uniWriter.write(textEncoder.encode('456'))
+        uniWriter.write(textEncoder.encode('789'))
+
+        bidWriter.write(textEncoder.encode('zhaogaoxing'))
+        bidWriter.write(textEncoder.encode('哈哈哈'))
+
+        datagramWriter.write(textEncoder.encode('我是数据报，是不可靠传输'))
+    }
+
+    async function receiveBidrectionalStreams() {
+        const reader = transport.incomingBidirectionalStreams.getReader()
+        while (true) {
+            const {done, value} = await reader.read();
+            if (done) {
+                break;
+            }
+            _read(value.readable.getReader(), 'receiveBidReader')
+
+            const writer = value.writable.getWriter()
+
+            writer.write(textEncoder.encode('receiveBidReader test'))
+        }
+    }
+
+    async function receiveUnidirectionalStreams() {
+        const reader = transport.incomingUnidirectionalStreams.getReader()
+        while (true) {
+            const {done, value} = await reader.read();
+            if (done) {
+                break;
+            }
+            _read(value.getReader(), 'receiveUniReader')
+        }
+    }
+
+    async function ready() {
+        await transport.ready;
+
+        datagramWriter = transport.datagrams.writable.getWriter();
+        datagramReader = transport.datagrams.readable.getReader();
+
+        const bidStream = await transport.createBidirectionalStream();
+
+        bidWriter = bidStream.writable.getWriter();
+        bidReader = bidStream.readable.getReader();
+
+        const uinStream = await transport.createUnidirectionalStream()
+        uniWriter = uinStream.getWriter()
+    }
+
+    ready().then(() => {
+        receiveBidrectionalStreams()
+        receiveUnidirectionalStreams()
+        read()
+        write()
+
+        // transport2.ready
+    })
+    
+</script>
+</html>
