@@ -263,13 +263,14 @@ func (transport *WebTransport) close() {
 		return
 	}
 
+	transport.session = nil
+
 	close(transport.Stream)
 	close(transport.ReceiveStream)
 
 	transport.connectStream = nil
 	transport.settingsStream = nil
 	transport.Req = nil
-	transport.session = nil
 	transport.ReceiveStream = nil
 	transport.Stream = nil
 

@@ -40,8 +40,6 @@ type Config struct {
 }
 
 // WebTransportServer can handle WebTransport QUIC connections.
-// This example only shows bidirectional streams in action. Unidirectional
-// stream communication is also possible but not implemented here. For unreliable
 // communication with UDP datagram mentioned in
 // https://tools.ietf.org/html/draft-vvv-webtransport-quic-02#section-5
 // quic-go should implement https://tools.ietf.org/html/draft-ietf-quic-datagram-00
@@ -158,7 +156,7 @@ func (s *WebTransportServer) handleSession(sess quic.Session) {
 	r.Header().Add("sec-webtransport-http3-draft", "draft02")
 
 	// https://datatracker.ietf.org/doc/draft-ietf-webtrans-http3/ 3.3.  Creating a New Session
-	if req.Method == "CONNECT" && req.Protocol == "webtransport" && req.URL.Path == s.Path {
+	if req.Method == "CONNECT" && req.Protocol == "webtransport" && (req.URL.Path == s.Path || s.Path == "") {
 		r.WriteHeader(200)
 		r.Flush()
 	} else {
