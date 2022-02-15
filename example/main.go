@@ -143,6 +143,11 @@ func main() {
 						}(stream)
 					}
 				}(transport)
+
+				transport.OnMessage = func(message []byte) {
+					log.Printf("webtransport message: %v", string(message))
+					transport.SendMessage(message)
+				}
 			} else {
 				transport.Close(1000, "not support")
 			}
