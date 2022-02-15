@@ -65,7 +65,7 @@ func (s *WebTransportServer) Run() error {
 	listener, err := quic.ListenAddr(s.ListenAddr, s.generateTLSConfig(), &quic.Config{
 		EnableDatagrams:      true,
 		HandshakeIdleTimeout: 30 * time.Second,
-		MaxIdleTimeout:       3 * 60 * time.Second,
+		MaxIdleTimeout:       1 * 60 * time.Second,
 		KeepAlive:            false,
 	})
 	if err != nil {

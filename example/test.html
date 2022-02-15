@@ -17,8 +17,7 @@
   
 </body>
 <script>
-    const url = 'https://172.31.100.22:4433/counter';
-    // const url = 'https://localhost:4433/counter';
+    const url = 'https://localhost:4433/counter';
     const transport = new WebTransport(url);
     transport.closed.then(() => {
         console.log(`The HTTP/3 connection to ${url} closed gracefully.`);

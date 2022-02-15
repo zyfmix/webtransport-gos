@@ -24,7 +24,7 @@ server 端参照 example/main.go
 
 4. 使用参数启动 chrome:  open /Applications/Google\ Chrome.app --args \
     --ignore-certificate-errors-spki-list=TRgIbuesxs2xFZh+JJA/AIVnRtm75eLUMMPFKMMm2Fk= \
-    --origin-to-force-quic-on=172.31.100.22:4433 --blink-platform-log-channels \
+    --origin-to-force-quic-on=localhost:4433 --blink-platform-log-channels \
     --ignore-certificate-errors
 
 5. 访问 https://localhost:9000

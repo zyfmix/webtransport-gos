@@ -39,7 +39,7 @@ func main() {
 		ListenAddr:     ":4433",
 		TLSCertPath:    "server.crt",
 		TLSKeyPath:     "server.key",
-		AllowedOrigins: []string{"localhost", "::1", "172.31.100.22"},
+		AllowedOrigins: []string{"*"},
 		Path:           "",
 	})
 	go func() {

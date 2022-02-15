@@ -1,0 +1,43 @@
+{
+  "compileOnSave": false,
+  "compilerOptions": {
+    "outDir": "./lib/",// 打包到的目录
+    "sourceMap": false,// 是否生成sourceMap（用于浏览器调试）
+    "noImplicitAny": false,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "experimentalDecorators": true,
+    "moduleResolution": "node",
+    "declaration": true,
+    "downlevelIteration": true,
+    "declarationMap": false,// 是否生成声明文件map文件（便于调试）
+    "module": "esnext",
+    "target": "ES2019",// 转化成的目标语言
+    "esModuleInterop": true,
+    "baseUrl": "./",
+    "paths": {
+    },
+    "typeRoots": [
+      "./node_modules/@types",
+    ],
+    "types": [
+      "node"
+    ],
+    "lib": [
+      "dom",
+      "es2015"
+    ],
+    "allowJs": false
+  },
+  // 要打包的文件
+  "include": [
+    "src/**/*.ts",
+  ],
+  "exclude": [
+    "*.test.ts",
+    "/node_modules/**"
+  ],
+  "files": [
+    "./node_modules/miniprogram-api-typings/index.d.ts"
+  ]
+}

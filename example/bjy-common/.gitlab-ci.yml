@@ -1,0 +1,52 @@
+stages:
+  - code_eslint
+  - code_quality
+  - code_report
+
+workflow:
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS'
+      when: never
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+
+ESLINT 分析:
+  tags:
+    - docker
+  stage: code_eslint
+  image: harbor.baijiayun.com/sonar-scanner/eslint:latest
+  script:
+    - node /root/eslint/node_modules/eslint/bin/eslint.js -o=./report.json -f=json ./src/**/*.ts -c=/root/eslint/eslint/typescript.js --rulesdir=/root/eslint/eslint/rules --ignore-path=./.eslintignore
+  artifacts:
+    paths:
+      - report.json
+  allow_failure: true
+
+SONAR 分析:
+  tags:
+    - docker
+  stage: code_quality
+  image: harbor.baijiayun.com/sonar-scanner/sonar-scanner-cli:latest
+  dependencies: ["ESLINT 分析"]
+  variables:
+    # Defines the location of the analysis task cache
+    SONAR_USER_HOME: "${CI_PROJECT_DIR}/.sonar"
+    # Tells git to fetch all the branches of the project, required by the analysis task
+    GIT_DEPTH: "0"
+  cache:
+    key: "${CI_PROJECT_PATH}_${CI_JOB_NAME}-${CI_COMMIT_REF_NAME}"
+    paths:
+      - .sonar/cache
+  script:
+    - export
+    - sonar-scanner -Dsonar.verbose=false -Dsonar.qualitygate.wait=true -Dsonar.projectKey=${PROJECT_KEY} -Dsonar.eslint.reportPaths=./report.json
+  allow_failure: true
+ 
+SONAR 报告:
+  tags:
+    - docker
+  stage: code_report
+  image: ${DOCKER_REGISTRY}/cicd/sonarnotify:latest
+  script:
+    - export
+    - sonarnotify

@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>test</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+      }
+    </style>
+</head>
+<body>
+  
+</body>
+<script type="module">
+
+    import Transport from './bjy-common/lib/helper/Transport.js'
+    import WebTransportWS from './bjy-common/lib/helper/WebTransportWS.js'
+
+    // const url = 'https://172.31.102.131:4433/room';
+    const url = 'https://localhost:4433/room';
+
+    let timer
+    
+    const transport = new Transport({
+        native: WebTransportWS,
+        nativeOptions: {
+            enableCommand: true,
+            textCommand: 100,
+            binaryCommand: 101,
+            useDatagrams: false
+        },
+        onReceive: (message) => {
+            console.log('onReceive: ', message)
+        },
+        onOpen: () => {
+            console.log('onOpen: ') 
+            if (timer) {
+                clearInterval(timer)
+                timer = null
+            }
+            timer = setInterval(() => {
+                transport.send('{"jsonrpc":"2.0","method":"joinRoom","params":{"roomId":"6346@YG1O5y61cBcG0DNPRvvCXPBPVy8Gfd8e","userId":"75470","info":{"version":"test","device":"mac/10.15.7 chrome/98.0.4758.80","ua":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/98.0.4758.80 Safari/537.36","role":"anchor","comments":"brtc-js-demo-web","create":true,"network":"4g","platform":"浏览器"},"sessionId":null},"id":0}')
+            }, 1000);
+        },
+        onClose: () => {
+            console.log('onClose: ')
+            if (timer) {
+                clearInterval(timer)
+                timer = null
+            }
+        },
+        onError: () => {
+            console.log('onError: ') 
+            if (timer) {
+                clearInterval(timer)
+                timer = null
+            }
+        },
+        onTimeout: () => {
+            console.log('onTimeout: ') 
+        },
+        onReconnecting: () => {
+            console.log('onReconnecting: ') 
+        },
+        connectOnClose: true,
+        retryCount: 3,
+        interval: 1000,
+        timeout: 15000
+    })
+
+    transport.connect({
+        url
+    })
+
+    
+</script>
+</html>

@@ -72,7 +72,7 @@ func CreateWebTransport(session quic.Session, req *h3.WebTransportConnectRequest
 				return
 			}
 
-			if stream == transport.settingsStream {
+			if stream.StreamID() == transport.settingsStream.StreamID() {
 				continue
 			}
 
@@ -130,7 +130,7 @@ func CreateWebTransport(session quic.Session, req *h3.WebTransportConnectRequest
 				return
 			}
 
-			if stream == transport.connectStream {
+			if stream.StreamID() == transport.connectStream.StreamID() {
 				continue
 			}
 
