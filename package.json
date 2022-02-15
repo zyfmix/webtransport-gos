@@ -9,6 +9,8 @@
   "license": "ISC",
   "devDependencies": {
     "edp": "^1.1.2",
-    "edp-webserver": "^1.2.11"
+    "edp-webserver": "^1.2.11",
+    "ws": "^3.3.2",
+    "bjy-common": "git+ssh://git@git.baijiashilian.com:shared/brtc/bjy-common.git#master"
   }
 }
