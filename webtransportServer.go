@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"time"
 
 	"git.baijiashilian.com/shared/brtc/webtransport-go/h3"
 
@@ -62,7 +63,10 @@ func CreateWebTransportServer(config Config) *WebTransportServer {
 // Run server.
 func (s *WebTransportServer) Run() error {
 	listener, err := quic.ListenAddr(s.ListenAddr, s.generateTLSConfig(), &quic.Config{
-		EnableDatagrams: true,
+		EnableDatagrams:      true,
+		HandshakeIdleTimeout: 30 * time.Second,
+		MaxIdleTimeout:       3 * 60 * time.Second,
+		KeepAlive:            false,
 	})
 	if err != nil {
 		return err
