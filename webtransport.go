@@ -5,16 +5,16 @@ import (
 	"context"
 	"io"
 	"log"
+	"net/http"
 	"time"
 
-	"git.baijiashilian.com/shared/brtc/webtransport-go/h3"
 	"github.com/lucas-clemente/quic-go"
 	"github.com/lucas-clemente/quic-go/quicvarint"
 )
 
 type WebTransport struct {
 	session quic.Session
-	Req     *h3.WebTransportConnectRequest
+	Req     *http.Request
 
 	// Incoming bidirectional HTTP/3 streams (e.g. WebTransport)
 	Stream chan quic.Stream
@@ -53,7 +53,7 @@ func (br *byteReaderImpl) ReadByte() (byte, error) {
 	return b[0], nil
 }
 
-func CreateWebTransport(session quic.Session, req *h3.WebTransportConnectRequest, connectStream quic.Stream, settingsStream quic.ReceiveStream) *WebTransport {
+func CreateWebTransport(session quic.Session, req *http.Request, connectStream quic.Stream, settingsStream quic.ReceiveStream) *WebTransport {
 	transport := &WebTransport{
 		session:        session,
 		Req:            req,
@@ -69,6 +69,10 @@ func CreateWebTransport(session quic.Session, req *h3.WebTransportConnectRequest
 			stream, err := session.AcceptUniStream(session.Context())
 			if err != nil {
 				transport.close()
+				return
+			}
+
+			if transport.session == nil {
 				return
 			}
 
@@ -113,7 +117,7 @@ func CreateWebTransport(session quic.Session, req *h3.WebTransportConnectRequest
 				case <-done:
 					return
 				// 如果是 webtransport stream 则一定会读取到头数据，否则超时退出
-				case <-time.After(time.Duration(10 * time.Millisecond)):
+				case <-time.After(time.Duration(1 * time.Second)):
 					return
 				}
 
@@ -127,6 +131,10 @@ func CreateWebTransport(session quic.Session, req *h3.WebTransportConnectRequest
 			stream, err := session.AcceptStream(session.Context())
 			if err != nil {
 				transport.close()
+				return
+			}
+
+			if transport.session == nil {
 				return
 			}
 
@@ -170,7 +178,7 @@ func CreateWebTransport(session quic.Session, req *h3.WebTransportConnectRequest
 				case <-done:
 					return
 				// 如果是 webtransport stream 则一定会读取到头数据，否则超时退出
-				case <-time.After(time.Duration(10 * time.Millisecond)):
+				case <-time.After(time.Duration(1 * time.Second)):
 					return
 				}
 			}(stream)

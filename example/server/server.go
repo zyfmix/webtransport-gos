@@ -35,7 +35,7 @@ func handleReceiveStream(str quic.ReceiveStream) {
 }
 
 func main() {
-	server := webtransport.CreateWebTransportServer(webtransport.Config{
+	server := webtransport.CreateWebTransportServer(webtransport.ServerConfig{
 		ListenAddr:     ":4433",
 		TLSCertPath:    "server.crt",
 		TLSKeyPath:     "server.key",

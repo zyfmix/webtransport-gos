@@ -26,7 +26,7 @@ type ClientIndication struct {
 }
 
 // Config for WebTransportServerQuic.
-type Config struct {
+type ServerConfig struct {
 	http.Handler
 	// ListenAddr sets an address to bind server to.
 	ListenAddr string
@@ -46,16 +46,16 @@ type Config struct {
 // quic-go should implement https://tools.ietf.org/html/draft-ietf-quic-datagram-00
 // draft (there is an ongoing pull request – see https://github.com/lucas-clemente/quic-go/pull/2162).
 type WebTransportServer struct {
-	Config
+	ServerConfig
 	Webtransport chan *WebTransport
 }
 
-func CreateWebTransportServer(config Config) *WebTransportServer {
+func CreateWebTransportServer(config ServerConfig) *WebTransportServer {
 	if config.Handler == nil {
 		config.Handler = http.DefaultServeMux
 	}
 	return &WebTransportServer{
-		Config:       config,
+		ServerConfig: config,
 		Webtransport: make(chan *WebTransport),
 	}
 }
@@ -160,7 +160,7 @@ func (s *WebTransportServer) handleSession(sess quic.Session) {
 	r.Header().Add("sec-webtransport-http3-draft", "draft02")
 
 	// https://datatracker.ietf.org/doc/draft-ietf-webtrans-http3/ 3.3.  Creating a New Session
-	if req.Method == "CONNECT" && req.Protocol == "webtransport" && (req.URL.Path == s.Path || s.Path == "") {
+	if req.Method == "CONNECT" && req.Proto == "webtransport" && (req.URL.Path == s.Path || s.Path == "") {
 		r.WriteHeader(200)
 		r.Flush()
 	} else {

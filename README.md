@@ -11,7 +11,9 @@
 
 #### 使用
 
-server 端参照 example/main.go
+server 端参照 example/server/server.go
+
+client 端参照 example/client/client.go
 
 
 #### 测试
@@ -32,4 +34,4 @@ server 端参照 example/main.go
 #### Features
 
 - [x] server
-- [ ] client
+- [x] client

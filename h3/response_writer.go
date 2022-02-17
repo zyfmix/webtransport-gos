@@ -90,7 +90,7 @@ func (w *responseWriter) Write(p []byte) (int, error) {
 	if !bodyAllowedForStatus(w.status) {
 		return 0, http.ErrBodyNotAllowed
 	}
-	df := &dataFrame{Length: uint64(len(p))}
+	df := &DataFrame{Length: uint64(len(p))}
 	buf := &bytes.Buffer{}
 	df.Write(buf)
 	if _, err := w.bufferedStream.Write(buf.Bytes()); err != nil {
