@@ -3,6 +3,7 @@ package webtransport
 import (
 	"bytes"
 	"context"
+	"errors"
 	"io"
 	"log"
 	"net/http"
@@ -288,6 +289,9 @@ func (transport *WebTransport) close() {
 }
 
 func (transport *WebTransport) Close(code quic.ApplicationErrorCode, message string) error {
+	if transport.session == nil {
+		return errors.New("session is not opened")
+	}
 	err := transport.session.CloseWithError(code, message)
 	transport.close()
 	return err
