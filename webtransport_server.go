@@ -169,7 +169,7 @@ func (s *WebTransportServer) handleSession(sess quic.Session) {
 		return
 	}
 
-	transport := CreateWebTransport(sess, req, requestStream, settingsStream)
+	transport := createWebTransport(sess, req, requestStream, settingsStream)
 
 	s.Webtransport <- transport
 

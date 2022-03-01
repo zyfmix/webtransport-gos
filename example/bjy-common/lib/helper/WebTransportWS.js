@@ -9,6 +9,7 @@ import nextTick from '../function/nextTick.js';
 import * as array from '../util/array.js';
 import * as object from '../util/object.js';
 import getTimestamp from '../function/getTimestamp.js';
+import * as base64 from '../util/base64.js';
 const defaultOptions = {
     enableCommand: false,
     textCommand: 2,
@@ -17,7 +18,8 @@ const defaultOptions = {
     streamCount: 1,
     textCommandStart: 2,
     textCommandEnd: Math.pow(2, 31) - 1,
-    commandTimeout: 30 * 1000
+    commandTimeout: 30 * 1000,
+    bufferSize: 1 * 1024 * 1024
 };
 export default class WebTransportWS {
     constructor(url, options) {
@@ -30,10 +32,9 @@ export default class WebTransportWS {
         this.readers = [];
         this.writers = [];
         this.netString = new NetString({
-            bufferSize: 1000 * 1024 * 1024,
+            bufferSize: this.options.bufferSize,
             onDecodeText: ((message, cmd) => {
                 if (this.onmessage) {
-
                     if (this.options.streamCount > 1) {
                         if (this.commandMap.get(cmd)) {
                             // 已经收到过
@@ -71,9 +72,23 @@ export default class WebTransportWS {
             opts.allowPooling = options.allowPooling;
         }
         if (is.array(options.serverCertificateHashes)) {
-            opts.serverCertificateHashes = options.serverCertificateHashes;
+            opts.serverCertificateHashes = [];
+            array.each(options.serverCertificateHashes, item => {
+                if (is.string(item.value)) {
+                    opts.serverCertificateHashes.push({
+                        algorithm: item.algorithm,
+                        value: base64.base642Uint8Array(item.value)
+                    });
+                }
+                else {
+                    opts.serverCertificateHashes.push({
+                        algorithm: item.algorithm,
+                        value: item.value
+                    });
+                }
+            });
         }
-        this.transport = new WebTransport(this.url, opts);
+        this.transport = new WebTransport(this.url.replace(/^webtransport:/, 'https:'), opts);
         this.transport.closed.then(() => {
             logger.info(`WebTransportWS closed gracefully, url: ${url}`);
             if (this.onclose) {
@@ -90,15 +105,25 @@ export default class WebTransportWS {
     }
     async read(reader) {
         while (true) {
-            const { value, done } = await reader.read();
-            if (done) {
+            try {
+                const { value, done } = await reader.read();
+                if (done) {
+                    break;
+                }
+                this.netString.decode(value);
+            }
+            catch (error) {
+                logger.error(`read data error, ${error}`);
+                // 出现解析失败，后面的数据也会解析失败，直接结束
                 break;
             }
-            this.netString.decode(value);
+        }
+        if (this.onclose) {
+            execute(this.onclose, this, [new Error('readableStream closed')]);
         }
     }
     handleRead() {
-        array.each(this.readers, reader => {
+        array.each(this.readers, (reader) => {
             this.read(reader);
         });
     }
@@ -138,8 +163,8 @@ export default class WebTransportWS {
     send(data) {
         const message = is.string(data) ? data : JSON.stringify(data);
         try {
-            const cmd = this.getTextCommand()
-            array.each(this.writers, writer => {
+            const cmd = this.getTextCommand();
+            array.each(this.writers, (writer) => {
                 writer.write(this.netString.encode(message, cmd));
             });
         }
@@ -151,7 +176,7 @@ export default class WebTransportWS {
         }
     }
     sendBinary(buffer) {
-        array.each(this.writers, writer => {
+        array.each(this.writers, (writer) => {
             writer.write(this.netString.encode(buffer, this.options.binaryCommand));
         });
     }

@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>test</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+      }
+      #canvas {
+          width: 1600px;
+          height: 1200px;
+      }
+    </style>
+</head>
+<body>
+    <div id="canvas"></div>
+</body>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.3.0/dist/echarts.min.js"></script>
+<script type="module">
+
+    const webtransportData = []
+    const length = 150
+
+    import Transport from './bjy-common/lib/helper/Transport.js'
+    import WebTransportWS from './bjy-common/lib/helper/WebTransportWS.js'
+
+    const webtransportUrl = 'https://172.31.102.131:4433/room';
+    // const webtransportUrl = 'https://localhost:4433/room';
+
+    const websocketUrl = 'wss://172.31.102.131:8121/room';
+    // const websocketUrl = 'wss://localhost:8121/room';
+
+    const signal = '{"message_type":"heart_beat","timestamp":1645118341,"ts":1645147141407,"class_id":"21112960263866","user_id":"10005510","signal_send_by":{"id":"10005510","number":"1642405146832320","type":2,"group":0,"end_type":0}}'
+    
+    let webtransport
+    let websocket
+
+
+    function getOptions(isWebsocket) {
+        let opened = false
+        let timeout
+        let sendTimestamp = 0
+
+        return {
+            native: isWebsocket ? WebSocket : WebTransportWS,
+            nativeOptions: {
+                enableCommand: true,
+                textCommand: 1,
+                binaryCommand: 2,
+                useDatagrams: false,
+                allowPooling: true,
+            },
+            onReceive: (message) => {
+
+                const data = isWebsocket ? websocketData : webtransportData
+
+                const now = Date.now()
+
+                data.push([data.length, now - sendTimestamp])
+
+                if (data.length >= length) {
+                    draw()
+                }
+                else if (opened && data.length < length) {
+                    timeout = setTimeout(() => {
+                        const transport = isWebsocket ? websocket : webtransport
+                        sendTimestamp = Date.now()
+                        transport.send(signal)
+                    }, 1000);
+                }
+                console.log('onReceive: ', message)
+            },
+            onOpen: () => {
+                console.log('onOpen: ')
+
+                if (timeout) {
+                    clearTimeout(timeout)
+                }
+
+                const transport = isWebsocket ? websocket : webtransport
+                sendTimestamp = Date.now()
+                transport.send(signal)
+
+                opened = true
+            },
+            onClose: () => {
+                console.log('onClose: ')
+                opened = false
+            },
+            onError: () => {
+                console.log('onError: ')
+                opened = false
+            },
+            onTimeout: () => {
+                console.log('onTimeout: ') 
+                opened = false
+            },
+            onReconnecting: () => {
+                console.log('onReconnecting: ')
+                opened = false 
+            },
+            connectOnClose: true,
+            retryCount: 30,
+            interval: 1000,
+            timeout: 15000
+        }
+    }
+
+     
+    webtransport = new Transport(getOptions(false))
+
+    webtransport.connect({
+        url: webtransportUrl
+    })
+
+
+    function draw() {
+        var myChart = echarts.init(document.getElementById('canvas'))
+
+        myChart.setOption({
+            title: {
+                text: 'signal rtt',
+                textAlign: 'center',
+                left: '15%'
+            },
+            legend: {
+                show: true
+            },
+            xAxis: {
+                name: 'time(s)'
+            },
+            yAxis: {
+                name: 'rtt(ms)',
+                // interval: 100,
+                // max: 5 * 1000
+            },
+            tooltip: {
+                show: true,
+                trigger: 'item'
+            },
+            series: [
+                {
+                    data: webtransportData,
+                    type: 'line',
+                    name: `webtransport`
+                }    
+            ]
+        });
+    }
+</script>
+</html>

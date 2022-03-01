@@ -54,7 +54,7 @@ func (br *byteReaderImpl) ReadByte() (byte, error) {
 	return b[0], nil
 }
 
-func CreateWebTransport(session quic.Session, req *http.Request, connectStream quic.Stream, settingsStream quic.ReceiveStream) *WebTransport {
+func createWebTransport(session quic.Session, req *http.Request, connectStream quic.Stream, settingsStream quic.ReceiveStream) *WebTransport {
 	transport := &WebTransport{
 		session:        session,
 		Req:            req,

@@ -67,8 +67,8 @@ export default class RingBuffer {
         if (this.length > 0) {
             let result;
             if (this.valid >= this.size) {
-                this.valid = 0;
-                result = this.data[this.valid];
+                this.valid = 1;
+                result = this.data[0];
             }
             else {
                 result = this.data[this.valid++];
