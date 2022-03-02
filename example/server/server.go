@@ -132,15 +132,7 @@ func main() {
 
 								if err != nil {
 									log.Printf("error reading from stream %d: %v", str.StreamID(), err)
-
-									transportError, ok := err.(*quic.TransportError)
-
-									if ok && quic.TransportErrorCode(transportError.ErrorCode) == quic.NoError {
-										continue
-									} else {
-										break
-									}
-
+									break
 								}
 
 								// log.Printf("webtransport stream receive: %v", string(message.Payload))
