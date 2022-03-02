@@ -13,9 +13,10 @@ import * as base64 from '../util/base64.js';
 import Timer from './Timer.js';
 import Avrage from './Avrage.js';
 import restrain from '../function/restrain.js';
+import isDef from '../function/isDef.js';
 const defaultOptions = {
+    mode: 'text',
     enableCommand: false,
-    textCommand: 20,
     binaryCommand: 19,
     pingCommand: 1,
     serverPingCommand: 2,
@@ -30,9 +31,27 @@ const defaultOptions = {
     pingInterval: 5000
 };
 export default class WebTransportWS {
-    constructor(url, options) {
+    constructor(url, options = {}) {
         this.url = url;
         this.options = object.extend({}, defaultOptions, options);
+        if (options.textDecoder) {
+            this.textDecoder = options.textDecoder;
+        }
+        else if (is.func(TextDecoder)) {
+            this.textDecoder = new TextDecoder();
+        }
+        else if (this.options.mode === 'text' && this.options.mode === 'text') {
+            logger.warn('has not textDecoder to use, support binary only');
+        }
+        if (options.textEncoder) {
+            this.textEncoder = options.textEncoder;
+        }
+        else if (is.func(TextEncoder) && this.options.mode === 'text') {
+            this.textEncoder = new TextEncoder();
+        }
+        else if (this.options.mode === 'text') {
+            logger.warn('has not textEncoder to use, support binary only');
+        }
         this.textCommandPointer = this.options.textCommandStart;
         this.commandMap = new Map();
         this.pingStartTimestamp = new Map();
@@ -43,6 +62,9 @@ export default class WebTransportWS {
         this.netStrings = [];
         this.currentWriteStreams = 1;
         this.rtt = new Avrage(5);
+        if (this.options.mode === 'stream') {
+            this.options.streamCount = 1;
+        }
         if (this.options.streamCount > 1) {
             this.options.enableCommand = true;
         }
@@ -54,57 +76,34 @@ export default class WebTransportWS {
                 this.ping();
             }, 1000, this.options.pingInterval);
         }
-        const opts = {};
-        if (is.boolean(options.allowPooling)) {
-            opts.allowPooling = options.allowPooling;
-        }
-        if (is.array(options.serverCertificateHashes)) {
-            opts.serverCertificateHashes = [];
-            array.each(options.serverCertificateHashes, (item) => {
-                if (is.string(item.value)) {
-                    opts.serverCertificateHashes.push({
-                        algorithm: item.algorithm,
-                        value: base64.base642Uint8Array(item.value)
-                    });
-                }
-                else {
-                    opts.serverCertificateHashes.push({
-                        algorithm: item.algorithm,
-                        value: item.value
-                    });
-                }
-            });
-        }
-        this.transport = new WebTransport(this.url.replace(/^webtransport:/, 'https:'), opts);
-        this.transport.closed.then(() => {
-            logger.info(`WebTransportWS closed gracefully, url: ${url}`);
-            if (this.onclose) {
-                execute(this.onclose, this, [{}]);
-            }
-        })
-            .catch((error) => {
-            logger.error(`WebTransportWS closed because of error: ${error}, url: ${url}`);
-            if (this.onclose) {
-                execute(this.onclose, this, [error]);
-            }
-        });
         this.connect();
     }
     async read(reader, index) {
-        const netString = new NetString({
-            bufferSize: this.options.bufferSize,
-            onDecodeText: this.onDecodeMessage.bind(this),
-            enableCommand: this.options.enableCommand,
-            index
-        });
-        this.netStrings[index] = netString;
+        if (this.options.mode === 'text') {
+            this.netStrings[index] = new NetString({
+                bufferSize: this.options.bufferSize,
+                onDecodeText: this.onDecodeMessage.bind(this),
+                enableCommand: this.options.enableCommand,
+                index
+            });
+        }
         while (true) {
             try {
                 const { value, done } = await reader.read();
                 if (done) {
                     break;
                 }
-                netString.decode(value);
+                if (this.options.mode === 'text') {
+                    this.netStrings[index].decode(value);
+                }
+                else {
+                    if (this.onmessage) {
+                        execute(this.onmessage, this, [{
+                                data: value,
+                                binary: true
+                            }]);
+                    }
+                }
             }
             catch (error) {
                 logger.error(`read data error, ${error}`);
@@ -122,6 +121,40 @@ export default class WebTransportWS {
         });
     }
     async connect() {
+        const opts = {};
+        if (is.boolean(this.options.allowPooling)) {
+            opts.allowPooling = this.options.allowPooling;
+        }
+        if (is.array(this.options.serverCertificateHashes)) {
+            opts.serverCertificateHashes = [];
+            array.each(this.options.serverCertificateHashes, (item) => {
+                if (is.string(item.value)) {
+                    opts.serverCertificateHashes.push({
+                        algorithm: item.algorithm,
+                        value: base64.base642Uint8Array(item.value)
+                    });
+                }
+                else {
+                    opts.serverCertificateHashes.push({
+                        algorithm: item.algorithm,
+                        value: item.value
+                    });
+                }
+            });
+        }
+        this.transport = new WebTransport(this.url.replace(/^webtransport:/, 'https:'), opts);
+        this.transport.closed.then(() => {
+            logger.info(`WebTransportWS closed gracefully, url: ${this.url}`);
+            if (this.onclose) {
+                execute(this.onclose, this, [{}]);
+            }
+        })
+            .catch((error) => {
+            logger.error(`WebTransportWS closed because of error: ${error}, url: ${this.url}`);
+            if (this.onclose) {
+                execute(this.onclose, this, [error]);
+            }
+        });
         await this.transport.ready;
         if (this.options.useDatagrams) {
             this.readers.push(this.transport.datagrams.readable.getReader());
@@ -151,55 +184,71 @@ export default class WebTransportWS {
         this.handleRead();
     }
     getTextCommand() {
-        if (this.options.streamCount > 1) {
+        if (!this.options.enableCommand) {
+            return -1;
+        }
+        else {
             const command = this.textCommandPointer++;
             if (this.textCommandPointer > this.options.textCommandEnd) {
                 this.textCommandPointer = this.options.textCommandStart;
             }
             return command;
         }
-        return this.options.textCommand;
     }
     ping() {
-        if (this.writers.length && this.netStrings.length) {
+        if (this.writers.length) {
             const now = getTimestamp();
-            const message = `${now}`;
-            this.pingStartTimestamp.set(message, now);
-            this.writers[0].write(this.netStrings[0].encode(message, this.options.pingCommand));
+            const buffer = new Float64Array(1);
+            buffer[0] = now;
+            this.pingStartTimestamp.set(now, setTimeout(() => {
+                this.pingStartTimestamp.delete(now);
+                const rtt = getTimestamp() - now;
+                this.rtt.push(rtt);
+                if (is.func(this.options.onPing)) {
+                    this.options.onPing(this, rtt);
+                }
+            }, 5 * 1000));
+            this.writers[0].write(NetString.encode(new Uint8Array(buffer.buffer), this.options.pingCommand));
         }
     }
-    onDecodeMessage(instance, message, cmd) {
-        if (cmd === this.options.pingCommand) {
+    onDecodeMessage(instance, payload) {
+        if (payload.cmd === this.options.pingCommand && this.options.enablePing) {
+            const buffer = new Float64Array(payload.payload.buffer);
             // 客户端的 ping 消息返回
-            if (this.pingStartTimestamp.has(message)) {
-                const rtt = getTimestamp() - this.pingStartTimestamp.get(message);
+            if (this.pingStartTimestamp.has(buffer[0])) {
+                clearTimeout(this.pingStartTimestamp.get(buffer[0]));
+                const rtt = getTimestamp() - buffer[0];
                 this.rtt.push(rtt);
-                this.pingStartTimestamp.delete(message);
+                this.pingStartTimestamp.delete(buffer[0]);
                 if (is.func(this.options.onPing)) {
                     this.options.onPing(this, rtt);
                 }
             }
         }
-        else if (cmd === this.options.serverPingCommand) {
+        else if (payload.cmd === this.options.serverPingCommand && this.options.enablePing) {
             // 服务器的 ping 消息直接原样返回
             if (this.writers.length && this.netStrings.length) {
-                this.writers[instance.options.index].write(this.netStrings[0].encode(message, cmd));
+                this.writers[instance.options.index].write(payload.serialized);
             }
         }
-        else if (cmd >= this.options.textCommandStart && cmd <= this.options.textCommandEnd) {
+        else if (payload.cmd >= this.options.textCommandStart && payload.cmd <= this.options.textCommandEnd
+            || payload.cmd === this.options.binaryCommand) {
             if (this.options.streamCount > 1) {
-                if (this.commandMap.get(cmd)) {
+                if (this.commandMap.get(payload.cmd)) {
                     // 已经收到过
                     return;
                 }
                 if (this.onmessage) {
                     execute(this.onmessage, this, [{
-                            data: message
+                            data: (payload.cmd === this.options.binaryCommand || !this.textDecoder)
+                                ? payload.payload
+                                : this.textDecoder.decode(payload.payload),
+                            binary: payload.cmd === this.options.binaryCommand || !this.textDecoder
                         }]);
                 }
-                this.commandMap.set(cmd, true);
+                this.commandMap.set(payload.cmd, true);
                 this.commandQueue.push({
-                    cmd,
+                    cmd: payload.cmd,
                     timestamp: getTimestamp()
                 });
                 while (this.commandQueue.length) {
@@ -215,17 +264,33 @@ export default class WebTransportWS {
             else {
                 if (this.onmessage) {
                     execute(this.onmessage, this, [{
-                            data: message
+                            data: (payload.cmd === this.options.binaryCommand || !this.textDecoder)
+                                ? payload.payload
+                                : this.textDecoder.decode(payload.payload),
+                            binary: payload.cmd === this.options.binaryCommand || !this.textDecoder
                         }]);
                 }
             }
         }
+        else if (!isDef(payload.cmd)) {
+            if (this.onmessage) {
+                execute(this.onmessage, this, [{
+                        data: (payload.cmd === this.options.binaryCommand || !this.textDecoder)
+                            ? payload.payload
+                            : this.textDecoder.decode(payload.payload),
+                        binary: payload.cmd === this.options.binaryCommand || !this.textDecoder
+                    }]);
+            }
+        }
     }
     send(data) {
+        if (this.options.mode === 'stream') {
+            logger.error(`stream mode not support call send method`);
+            return;
+        }
         const message = is.string(data) ? data : JSON.stringify(data);
         try {
-            const command = this.getTextCommand();
-            const buffer = this.netStrings[0].encode(message, command);
+            const buffer = NetString.encode(this.textEncoder.encode(message), this.getTextCommand());
             array.each(this.options.autoStream
                 ? this.writers.slice(0, this.currentWriteStreams)
                 : this.writers, (writer) => {
@@ -241,7 +306,9 @@ export default class WebTransportWS {
     }
     sendBinary(buffer) {
         array.each(this.writers, (writer) => {
-            writer.write(this.netStrings[0].encode(buffer, this.options.binaryCommand));
+            writer.write(this.options.mode === 'text'
+                ? NetString.encode(buffer, this.options.binaryCommand)
+                : buffer);
         });
     }
     getCurrentWriteStreams() {
@@ -267,6 +334,23 @@ export default class WebTransportWS {
         if (this.pingTimer) {
             this.pingTimer.destroy();
             this.pingTimer = null;
+        }
+        if (this.textEncoder) {
+            this.textEncoder = null;
+        }
+        if (this.textDecoder) {
+            this.textDecoder = null;
+        }
+        if (this.pingStartTimestamp) {
+            this.pingStartTimestamp.forEach(timer => {
+                clearTimeout(timer);
+            });
+            this.pingStartTimestamp.clear();
+            this.pingStartTimestamp = null;
+        }
+        if (this.commandMap) {
+            this.commandMap.clear();
+            this.commandMap = null;
         }
         this.streams = null;
         this.readers = null;

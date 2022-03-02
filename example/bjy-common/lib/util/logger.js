@@ -144,6 +144,34 @@ export function fatal(msg, tag) {
         throw new Error(`[${tag || defaultTag} fatal]: ${msg}`);
     }
 }
+/**
+ * 根据日志等级打印
+ *
+ * @param level
+ * @param msg
+ * @param tag
+ */
+export function log(level, msg, tag) {
+    if (level === TRACE) {
+        trace(msg, tag);
+    }
+    else if (level === DEBUG) {
+        debug(msg, tag);
+    }
+    else if (level === INFO) {
+        info(msg, tag);
+    }
+    else if (level === WARN) {
+        warn(msg, tag);
+    }
+    else if (level === ERROR) {
+        error(msg, tag);
+    }
+    else if (level === FATAL) {
+        fatal(msg, tag);
+    }
+}
 export function setDefaultTag(tag) {
     defaultTag = tag;
 }
+ 

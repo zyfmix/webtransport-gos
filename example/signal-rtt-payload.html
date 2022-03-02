@@ -30,11 +30,11 @@
     import Transport from './bjy-common/lib/helper/Transport.js'
     import WebTransportWS from './bjy-common/lib/helper/WebTransportWS.js'
 
-    const webtransportUrl = 'https://172.31.102.131:4433/room';
-    // const webtransportUrl = 'https://localhost:4433/room';
+    // const webtransportUrl = 'https://172.31.102.131:4433/room';
+    const webtransportUrl = 'https://localhost:4433/room';
 
-    const websocketUrl = 'wss://172.31.102.131:8121/room';
-    // const websocketUrl = 'wss://localhost:8121/room';
+    // const websocketUrl = 'wss://172.31.102.131:8121/room';
+    const websocketUrl = 'wss://localhost:8121/room';
 
     const payload = '1234567890'
 
@@ -74,11 +74,7 @@
             native: isWebsocket ? WebSocket : WebTransportWS,
             nativeOptions: {
                 enableCommand: true,
-                textCommand: 1,
-                binaryCommand: 2,
-                useDatagrams: false,
                 allowPooling: true,
-                // streamCount,
             },
             onReceive: (message) => {
 

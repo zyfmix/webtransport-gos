@@ -63,6 +63,22 @@ export default class RingBuffer {
         this.pos += length;
         return data;
     }
+    readByRange(start, end) {
+        if (start <= end) {
+            const data = new this.constructorFunction(end - start);
+            data.set(this.data.subarray(start, end), 0);
+            return data;
+        }
+        else {
+            const data = new this.constructorFunction(this.size - start + end);
+            data.set(this.data.subarray(start), 0);
+            data.set(this.data.subarray(0, end), this.size - start);
+            return data;
+        }
+    }
+    getCurrentPointer() {
+        return this.valid;
+    }
     readByte() {
         if (this.length > 0) {
             let result;

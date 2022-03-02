@@ -17,6 +17,7 @@ export var TransportStatus;
 })(TransportStatus || (TransportStatus = {}));
 class Transport {
     constructor(options) {
+        var _a;
         object.extend(this, options);
         this.status = TransportStatus.NONE;
         this.queue = [];
@@ -24,6 +25,7 @@ class Transport {
         if (options.retryCount > 0) {
             this.retryIndex = 0;
         }
+        this.logLevel = (_a = this.logLevel) !== null && _a !== void 0 ? _a : logger.TRACE;
     }
     isOpen() {
         return this.status === TransportStatus.OPEN;
@@ -101,7 +103,7 @@ class Transport {
                                 const data = me.queue.shift();
                                 const payload = is.string(data) ? data : JSON.stringify(data);
                                 socket.send(payload);
-                                logger.trace(`${me.tag || 'Transport'} Sent: ${payload}`);
+                                logger.log(me.logLevel, `${me.tag || 'Transport'} Sent: ${payload}`);
                                 if (me.onSend) {
                                     me.onSend(data);
                                 }
@@ -127,8 +129,8 @@ class Transport {
                     me.status = TransportStatus.OPEN;
                     socket.onmessage = function (event) {
                         if (me.status === TransportStatus.OPEN) {
-                            logger.trace(`${me.tag || 'Transport'} Received: ${event.data}`);
-                            if (me.onReceive) {
+                            logger.log(me.logLevel, `${me.tag || 'Transport'} Received: ${event.data}`);
+                            if (me.onReceive && !event.binary) {
                                 me.onReceive(JSON.parse(event.data));
                             }
                             if (me.onmessage) {
@@ -170,7 +172,7 @@ class Transport {
                             const data = me.queue.shift();
                             const payload = is.string(data) ? data : JSON.stringify(data);
                             socket.send(payload);
-                            logger.trace(`${me.tag || 'Transport'} Sent: ${payload}`);
+                            logger.log(me.logLevel, `${me.tag || 'Transport'} Sent: ${payload}`);
                         }
                     }
                 }
@@ -228,7 +230,7 @@ class Transport {
         if (socket) {
             const payload = is.string(data) ? data : JSON.stringify(data);
             socket.send(payload);
-            logger.trace(`${this.tag || 'Transport'} Sent: ${payload}`);
+            logger.log(this.logLevel, `${this.tag || 'Transport'} Sent: ${payload}`);
             if (this.onSend) {
                 this.onSend(data);
             }
