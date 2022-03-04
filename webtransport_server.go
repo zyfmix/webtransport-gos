@@ -38,6 +38,12 @@ type ServerConfig struct {
 	AllowedOrigins []string
 
 	Path string
+
+	HandshakeIdleTimeout time.Duration
+
+	MaxIdleTimeout time.Duration
+
+	KeepAlive bool
 }
 
 // WebTransportServer can handle WebTransport QUIC connections.
@@ -54,6 +60,12 @@ func CreateWebTransportServer(config ServerConfig) *WebTransportServer {
 	if config.Handler == nil {
 		config.Handler = http.DefaultServeMux
 	}
+	if config.HandshakeIdleTimeout <= 0 {
+		config.HandshakeIdleTimeout = time.Duration(60 * time.Second)
+	}
+	if config.MaxIdleTimeout <= 0 {
+		config.MaxIdleTimeout = time.Duration(10 * time.Minute)
+	}
 	return &WebTransportServer{
 		ServerConfig: config,
 		Webtransport: make(chan *WebTransport),
@@ -64,9 +76,9 @@ func CreateWebTransportServer(config ServerConfig) *WebTransportServer {
 func (s *WebTransportServer) Run() error {
 	listener, err := quic.ListenAddr(s.ListenAddr, s.generateTLSConfig(), &quic.Config{
 		EnableDatagrams:      true,
-		HandshakeIdleTimeout: 30 * time.Second,
-		MaxIdleTimeout:       1 * 60 * time.Second,
-		KeepAlive:            false,
+		HandshakeIdleTimeout: s.HandshakeIdleTimeout,
+		MaxIdleTimeout:       s.MaxIdleTimeout,
+		KeepAlive:            s.KeepAlive,
 	})
 	if err != nil {
 		return err

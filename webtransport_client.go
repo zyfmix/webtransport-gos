@@ -27,6 +27,12 @@ type ClientConfig struct {
 	InsecureSkipVerify bool
 
 	Path string
+
+	HandshakeIdleTimeout time.Duration
+
+	MaxIdleTimeout time.Duration
+
+	KeepAlive bool
 }
 
 type WebTransportClient struct {
@@ -51,6 +57,14 @@ type WebTransportClient struct {
 }
 
 func CreateWebTransportClient(config ClientConfig) *WebTransportClient {
+
+	if config.HandshakeIdleTimeout <= 0 {
+		config.HandshakeIdleTimeout = time.Duration(30 * time.Second)
+	}
+	if config.MaxIdleTimeout <= 0 {
+		config.MaxIdleTimeout = time.Duration(10 * time.Minute)
+	}
+
 	return &WebTransportClient{
 		ClientConfig:  config,
 		connected:     false,
@@ -71,9 +85,9 @@ func (client *WebTransportClient) Connect() error {
 		},
 		&quic.Config{
 			EnableDatagrams:      true,
-			HandshakeIdleTimeout: 30 * time.Second,
-			MaxIdleTimeout:       1 * 60 * time.Second,
-			KeepAlive:            false,
+			HandshakeIdleTimeout: client.HandshakeIdleTimeout,
+			MaxIdleTimeout:       client.MaxIdleTimeout,
+			KeepAlive:            client.KeepAlive,
 		},
 	)
 
