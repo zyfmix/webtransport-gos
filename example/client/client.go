@@ -11,10 +11,10 @@ import (
 
 func main() {
 	client := webtransport.CreateWebTransportClient(webtransport.ClientConfig{
-		Path:       "/room",
-		RemoteAddr: "localhost:4433",
-		// RemoteAddr: "zgx-localhost-brtc.baijiayun.com:4433",
-		InsecureSkipVerify: true,
+		Path: "/room",
+		// RemoteAddr: "localhost:4433",
+		RemoteAddr: "zgx-localhost-brtc.baijiayun.com:4433",
+		// InsecureSkipVerify: true,
 	})
 
 	go func(client *webtransport.WebTransportClient) {
