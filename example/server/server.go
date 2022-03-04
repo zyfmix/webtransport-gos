@@ -37,8 +37,8 @@ func handleReceiveStream(str quic.ReceiveStream) {
 func main() {
 	server := webtransport.CreateWebTransportServer(webtransport.ServerConfig{
 		ListenAddr:     ":4433",
-		TLSCertPath:    "../server.crt",
-		TLSKeyPath:     "../server.key",
+		TLSCertPath:    "../baijiayun.com.crt",
+		TLSKeyPath:     "../baijiayun.com.key",
 		AllowedOrigins: []string{"*"},
 		Path:           "",
 	})
@@ -135,7 +135,7 @@ func main() {
 									break
 								}
 
-								// log.Printf("webtransport stream receive: %v", string(message.Payload))
+								log.Printf("webtransport stream receive: %v", string(message.Payload))
 
 								str.Write(message.Serialized)
 							}
