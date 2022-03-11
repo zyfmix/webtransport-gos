@@ -208,6 +208,7 @@ func createWebTransport(session quic.Session, req *http.Request, connectStream q
 
 					if err != nil || sessionId != transport.sessionId {
 						log.Printf("received message format error, ignore it, sessionId: %d", sessionId)
+						continue
 					}
 					transport.OnMessage(buf.Bytes())
 				}
