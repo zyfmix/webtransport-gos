@@ -200,7 +200,16 @@ func createWebTransport(session quic.Session, req *http.Request, connectStream q
 			if len > 0 {
 				// TODO https://datatracker.ietf.org/doc/draft-ietf-webtrans-http3/ Session Termination 结束 session
 				if transport.OnMessage != nil {
-					transport.OnMessage(msg)
+
+					buf := &bytes.Buffer{}
+					buf.Write(msg)
+
+					sessionId, err := quicvarint.Read(buf)
+
+					if err != nil || sessionId != transport.sessionId {
+						log.Printf("received message format error, ignore it, sessionId: %d", sessionId)
+					}
+					transport.OnMessage(buf.Bytes())
 				}
 			}
 		}
@@ -263,7 +272,13 @@ func (transport *WebTransport) CreateUniStream() (quic.SendStream, error) {
 }
 
 func (transport *WebTransport) SendMessage(message []byte) error {
-	return transport.session.SendMessage(message)
+
+	buf := &bytes.Buffer{}
+
+	quicvarint.Write(buf, transport.sessionId)
+	buf.Write(message)
+
+	return transport.session.SendMessage(buf.Bytes())
 }
 
 func (transport *WebTransport) close() {
