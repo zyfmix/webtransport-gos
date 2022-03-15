@@ -379,7 +379,10 @@ func (client *WebTransportClient) CreateUniStream() (quic.SendStream, error) {
 
 func (client *WebTransportClient) SendMessage(message []byte) error {
 	if client.connected {
-		return client.session.SendMessage(message)
+		buf := &bytes.Buffer{}
+		quicvarint.Write(buf, client.sessionId)
+		buf.Write(message)
+		return client.session.SendMessage(buf.Bytes())
 	}
 	return errors.New("client not connect")
 }
