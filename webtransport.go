@@ -32,6 +32,8 @@ type WebTransport struct {
 	connectStream quic.Stream
 
 	settingsStream quic.ReceiveStream
+
+	closed bool
 }
 
 type byteReader interface {
@@ -284,15 +286,28 @@ func (transport *WebTransport) SendMessage(message []byte) error {
 
 func (transport *WebTransport) close() {
 
+	defer func() {
+		if err := recover(); err != nil {
+			log.Printf("transport closed error : %+q \n", err)
+		}
+	}()
+
+	if transport.closed {
+		return
+	}
+
 	if transport.session == nil {
 		return
 	}
 
 	transport.session = nil
 
+	transport.closed = true
+
 	close(transport.Stream)
 	close(transport.ReceiveStream)
 
+	// self gc
 	transport.connectStream = nil
 	transport.settingsStream = nil
 	transport.Req = nil
