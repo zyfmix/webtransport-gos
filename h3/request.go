@@ -1,7 +1,6 @@
 package h3
 
 import (
-	"context"
 	"crypto/tls"
 	"errors"
 	"net/http"
@@ -12,38 +11,7 @@ import (
 	"github.com/marten-seemann/qpack"
 )
 
-type WebTransportConnectRequest struct {
-	http.Request
-	Protocol string
-	ctx      context.Context
-}
-
-func cloneURL(u *url.URL) *url.URL {
-	if u == nil {
-		return nil
-	}
-	u2 := new(url.URL)
-	*u2 = *u
-	if u.User != nil {
-		u2.User = new(url.Userinfo)
-		*u2.User = *u.User
-	}
-	return u2
-}
-
-func (r *WebTransportConnectRequest) WithContext(ctx context.Context) *WebTransportConnectRequest {
-	if ctx == nil {
-		panic("nil context")
-	}
-	r2 := new(WebTransportConnectRequest)
-	*r2 = *r
-
-	r2.ctx = ctx
-	r2.URL = cloneURL(r.URL) // legacy behavior; TODO: try to remove. Issue 23544
-	return r2
-}
-
-func RequestFromHeaders(headers []qpack.HeaderField) (*WebTransportConnectRequest, error) {
+func RequestFromHeaders(headers []qpack.HeaderField) (*http.Request, error) {
 	var path, authority, method, contentLengthStr, protocol string
 	httpHeaders := http.Header{}
 
@@ -106,20 +74,47 @@ func RequestFromHeaders(headers []qpack.HeaderField) (*WebTransportConnectReques
 		}
 	}
 
-	return &WebTransportConnectRequest{
-		Request: http.Request{
-			Method:        method,
-			URL:           u,
-			Proto:         "HTTP/3",
-			ProtoMajor:    3,
-			ProtoMinor:    0,
-			Header:        httpHeaders,
-			Body:          nil,
-			ContentLength: contentLength,
-			Host:          authority,
-			RequestURI:    requestURI,
-			TLS:           &tls.ConnectionState{},
-		},
-		Protocol: protocol,
+	return &http.Request{
+		Method:        method,
+		URL:           u,
+		Proto:         protocol,
+		ProtoMajor:    3,
+		ProtoMinor:    0,
+		Header:        httpHeaders,
+		Body:          nil,
+		ContentLength: contentLength,
+		Host:          authority,
+		RequestURI:    requestURI,
+		TLS:           &tls.ConnectionState{},
+	}, nil
+}
+
+func ResponseFromHeaders(headers []qpack.HeaderField) (*http.Response, error) {
+
+	var statusCode int
+	var statusText string
+	httpHeaders := http.Header{}
+
+	for _, hf := range headers {
+		switch hf.Name {
+		case ":status":
+			status, err := strconv.Atoi(hf.Value)
+			if err != nil {
+				return nil, errors.New("malformed non-numeric status pseudo header")
+			}
+			statusCode = status
+			statusText = hf.Value + " " + http.StatusText(status)
+		default:
+			httpHeaders.Add(hf.Name, hf.Value)
+		}
+	}
+
+	return &http.Response{
+		Proto:      "webtransport",
+		Status:     statusText,
+		StatusCode: statusCode,
+		TLS:        &tls.ConnectionState{},
+		Header:     httpHeaders,
+		Body:       nil,
 	}, nil
 }

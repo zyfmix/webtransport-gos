@@ -26,7 +26,7 @@ type ClientIndication struct {
 }
 
 // Config for WebTransportServerQuic.
-type Config struct {
+type ServerConfig struct {
 	http.Handler
 	// ListenAddr sets an address to bind server to.
 	ListenAddr string
@@ -38,6 +38,12 @@ type Config struct {
 	AllowedOrigins []string
 
 	Path string
+
+	HandshakeIdleTimeout time.Duration
+
+	MaxIdleTimeout time.Duration
+
+	KeepAlive bool
 }
 
 // WebTransportServer can handle WebTransport QUIC connections.
@@ -46,16 +52,22 @@ type Config struct {
 // quic-go should implement https://tools.ietf.org/html/draft-ietf-quic-datagram-00
 // draft (there is an ongoing pull request – see https://github.com/lucas-clemente/quic-go/pull/2162).
 type WebTransportServer struct {
-	Config
+	ServerConfig
 	Webtransport chan *WebTransport
 }
 
-func CreateWebTransportServer(config Config) *WebTransportServer {
+func CreateWebTransportServer(config ServerConfig) *WebTransportServer {
 	if config.Handler == nil {
 		config.Handler = http.DefaultServeMux
 	}
+	if config.HandshakeIdleTimeout <= 0 {
+		config.HandshakeIdleTimeout = time.Duration(60 * time.Second)
+	}
+	if config.MaxIdleTimeout <= 0 {
+		config.MaxIdleTimeout = time.Duration(10 * time.Minute)
+	}
 	return &WebTransportServer{
-		Config:       config,
+		ServerConfig: config,
 		Webtransport: make(chan *WebTransport),
 	}
 }
@@ -64,9 +76,9 @@ func CreateWebTransportServer(config Config) *WebTransportServer {
 func (s *WebTransportServer) Run() error {
 	listener, err := quic.ListenAddr(s.ListenAddr, s.generateTLSConfig(), &quic.Config{
 		EnableDatagrams:      true,
-		HandshakeIdleTimeout: 30 * time.Second,
-		MaxIdleTimeout:       1 * 60 * time.Second,
-		KeepAlive:            false,
+		HandshakeIdleTimeout: s.HandshakeIdleTimeout,
+		MaxIdleTimeout:       s.MaxIdleTimeout,
+		KeepAlive:            s.KeepAlive,
 	})
 	if err != nil {
 		return err
@@ -160,7 +172,7 @@ func (s *WebTransportServer) handleSession(sess quic.Session) {
 	r.Header().Add("sec-webtransport-http3-draft", "draft02")
 
 	// https://datatracker.ietf.org/doc/draft-ietf-webtrans-http3/ 3.3.  Creating a New Session
-	if req.Method == "CONNECT" && req.Protocol == "webtransport" && (req.URL.Path == s.Path || s.Path == "") {
+	if req.Method == "CONNECT" && req.Proto == "webtransport" && (req.URL.Path == s.Path || s.Path == "") {
 		r.WriteHeader(200)
 		r.Flush()
 	} else {
@@ -169,7 +181,7 @@ func (s *WebTransportServer) handleSession(sess quic.Session) {
 		return
 	}
 
-	transport := CreateWebTransport(sess, req, requestStream, settingsStream)
+	transport := createWebTransport(sess, req, requestStream, settingsStream)
 
 	s.Webtransport <- transport
 

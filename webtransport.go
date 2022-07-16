@@ -3,18 +3,19 @@ package webtransport
 import (
 	"bytes"
 	"context"
+	"errors"
 	"io"
 	"log"
+	"net/http"
 	"time"
 
-	"git.baijiashilian.com/shared/brtc/webtransport-go/h3"
 	"github.com/lucas-clemente/quic-go"
 	"github.com/lucas-clemente/quic-go/quicvarint"
 )
 
 type WebTransport struct {
 	session quic.Session
-	Req     *h3.WebTransportConnectRequest
+	Req     *http.Request
 
 	// Incoming bidirectional HTTP/3 streams (e.g. WebTransport)
 	Stream chan quic.Stream
@@ -53,7 +54,7 @@ func (br *byteReaderImpl) ReadByte() (byte, error) {
 	return b[0], nil
 }
 
-func CreateWebTransport(session quic.Session, req *h3.WebTransportConnectRequest, connectStream quic.Stream, settingsStream quic.ReceiveStream) *WebTransport {
+func createWebTransport(session quic.Session, req *http.Request, connectStream quic.Stream, settingsStream quic.ReceiveStream) *WebTransport {
 	transport := &WebTransport{
 		session:        session,
 		Req:            req,
@@ -69,6 +70,10 @@ func CreateWebTransport(session quic.Session, req *h3.WebTransportConnectRequest
 			stream, err := session.AcceptUniStream(session.Context())
 			if err != nil {
 				transport.close()
+				return
+			}
+
+			if transport.session == nil {
 				return
 			}
 
@@ -113,7 +118,7 @@ func CreateWebTransport(session quic.Session, req *h3.WebTransportConnectRequest
 				case <-done:
 					return
 				// 如果是 webtransport stream 则一定会读取到头数据，否则超时退出
-				case <-time.After(time.Duration(10 * time.Millisecond)):
+				case <-time.After(time.Duration(1 * time.Second)):
 					return
 				}
 
@@ -127,6 +132,10 @@ func CreateWebTransport(session quic.Session, req *h3.WebTransportConnectRequest
 			stream, err := session.AcceptStream(session.Context())
 			if err != nil {
 				transport.close()
+				return
+			}
+
+			if transport.session == nil {
 				return
 			}
 
@@ -170,7 +179,7 @@ func CreateWebTransport(session quic.Session, req *h3.WebTransportConnectRequest
 				case <-done:
 					return
 				// 如果是 webtransport stream 则一定会读取到头数据，否则超时退出
-				case <-time.After(time.Duration(10 * time.Millisecond)):
+				case <-time.After(time.Duration(1 * time.Second)):
 					return
 				}
 			}(stream)
@@ -191,7 +200,17 @@ func CreateWebTransport(session quic.Session, req *h3.WebTransportConnectRequest
 			if len > 0 {
 				// TODO https://datatracker.ietf.org/doc/draft-ietf-webtrans-http3/ Session Termination 结束 session
 				if transport.OnMessage != nil {
-					transport.OnMessage(msg)
+
+					buf := &bytes.Buffer{}
+					buf.Write(msg)
+
+					sessionId, err := quicvarint.Read(buf)
+
+					if err != nil || sessionId != transport.sessionId {
+						log.Printf("received message format error, ignore it, sessionId: %d", sessionId)
+						continue
+					}
+					transport.OnMessage(buf.Bytes())
 				}
 			}
 		}
@@ -254,7 +273,13 @@ func (transport *WebTransport) CreateUniStream() (quic.SendStream, error) {
 }
 
 func (transport *WebTransport) SendMessage(message []byte) error {
-	return transport.session.SendMessage(message)
+
+	buf := &bytes.Buffer{}
+
+	quicvarint.Write(buf, transport.sessionId)
+	buf.Write(message)
+
+	return transport.session.SendMessage(buf.Bytes())
 }
 
 func (transport *WebTransport) close() {
@@ -280,6 +305,9 @@ func (transport *WebTransport) close() {
 }
 
 func (transport *WebTransport) Close(code quic.ApplicationErrorCode, message string) error {
+	if transport.session == nil {
+		return errors.New("session is not opened")
+	}
 	err := transport.session.CloseWithError(code, message)
 	transport.close()
 	return err

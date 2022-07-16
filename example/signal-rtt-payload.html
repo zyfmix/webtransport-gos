@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>test</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+      }
+      #canvas {
+          width: 1600px;
+          height: 1200px;
+      }
+    </style>
+</head>
+<body>
+    <div id="canvas"></div>
+</body>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.3.0/dist/echarts.min.js"></script>
+<script type="module">
+
+    const webtransportData = []
+    const websocketData = []
+    const length = 150
+
+    import Transport from './bjy-common/lib/helper/Transport.js'
+    import WebTransportWS from './bjy-common/lib/helper/WebTransportWS.js'
+
+    // const webtransportUrl = 'https://172.31.102.131:4433/room';
+    const webtransportUrl = 'https://localhost:4433/room';
+
+    // const websocketUrl = 'wss://172.31.102.131:8121/room';
+    const websocketUrl = 'wss://localhost:8121/room';
+
+    const payload = '1234567890'
+
+    function getPayload(size = 0.5) {
+        const num = Math.ceil(size * 100)
+
+        let text = ''
+        for (let i = 0; i < num; i++) {
+            text += payload
+        }
+        return {
+            payload: text 
+        }
+    }
+
+    let webtransport = []
+    let websocket
+
+    function canDraw() {
+        let can = true
+        webtransportData.forEach(item => {
+            if (item && item.length < length) {
+                can = false
+                return false
+            }
+        })
+        return can
+    }
+
+    function getOptions(isWebsocket, streamCount = 1, signal) {
+        let opened = false
+        let timeout
+
+        let sendTimestamp = 0
+
+        return {
+            native: isWebsocket ? WebSocket : WebTransportWS,
+            nativeOptions: {
+                enableCommand: true,
+                allowPooling: true,
+            },
+            onReceive: (message) => {
+
+                const data = isWebsocket ? websocketData : webtransportData[streamCount]
+
+                const now = Date.now()
+
+                data.push([data.length, now - sendTimestamp])
+
+                if (canDraw()) {
+                    draw()
+                }
+                else if (opened && data.length < length) {
+                    timeout = setTimeout(() => {
+                        const transport = isWebsocket ? websocket : webtransport[streamCount]
+                        sendTimestamp = Date.now()
+                        transport.send(signal)
+                    }, 1000);
+                }
+                console.log('onReceive: ', streamCount, message.payload.length)
+            },
+            onOpen: () => {
+                console.log('onOpen: ')
+
+                if (timeout) {
+                    clearTimeout(timeout)
+                }
+
+                const transport = isWebsocket ? websocket : webtransport[streamCount]
+                sendTimestamp = Date.now()
+                transport.send(signal)
+
+                opened = true
+            },
+            onClose: () => {
+                console.log('onClose: ')
+                opened = false
+            },
+            onError: () => {
+                console.log('onError: ')
+                opened = false
+            },
+            onTimeout: () => {
+                console.log('onTimeout: ') 
+                opened = false
+            },
+            onReconnecting: () => {
+                console.log('onReconnecting: ')
+                opened = false 
+            },
+            connectOnClose: true,
+            retryCount: 30,
+            interval: 1000,
+            timeout: 15000
+        }
+    }
+
+     
+    webtransport[1] = new Transport(getOptions(false, 1, getPayload(1)))
+    webtransportData[1] = []
+    webtransport[1].connect({
+        url: webtransportUrl
+    })
+
+    webtransport[5] = new Transport(getOptions(false, 5, getPayload(5)))
+    webtransportData[5] = []
+    webtransport[5].connect({
+        url: webtransportUrl
+    })
+
+    webtransport[10] = new Transport(getOptions(false, 10, getPayload(10)))
+    webtransportData[10] = []
+    webtransport[10].connect({
+        url: webtransportUrl
+    })
+
+    webtransport[20] = new Transport(getOptions(false, 20, getPayload(20)))
+    webtransportData[20] = []
+    webtransport[20].connect({
+        url: webtransportUrl
+    })
+
+    // websocket = new Transport(getOptions(true))
+
+    // websocket.connect({
+    //     url: websocketUrl
+    // })
+
+    function draw() {
+        var myChart = echarts.init(document.getElementById('canvas'))
+
+        const series = []
+
+        webtransportData.forEach((item, index) => {
+            if (item) {
+                series.push({
+                    data: item,
+                    type: 'line',
+                    name: `${index}k`
+                })
+            }
+        })
+
+        myChart.setOption({
+            title: {
+                text: 'signal rtt',
+                textAlign: 'center',
+                left: '15%'
+            },
+            legend: {
+                show: true
+            },
+            xAxis: {
+                name: 'time(s)'
+            },
+            yAxis: {
+                name: 'rtt(ms)',
+                // interval: 100,
+                // max: 5 * 1000
+            },
+            tooltip: {
+                show: true,
+                trigger: 'item'
+            },
+            series
+        });
+    }
+</script>
+</html>

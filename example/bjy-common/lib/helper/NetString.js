@@ -1,5 +1,8 @@
+/**
+ * @file netstring 实现
+ * @author zhaogaoxing
+ */
 import * as is from '../util/is.js';
-import * as logger from '../util/logger.js';
 import RingBuffer from './RingBuffer.js';
 var Token;
 (function (Token) {
@@ -13,56 +16,25 @@ var Token;
 export default class NetString {
     constructor(options) {
         this.options = options;
-        if (options.textDecoder) {
-            this.textDecoder = options.textDecoder;
-        }
-        else if (is.func(TextDecoder)) {
-            this.textDecoder = new TextDecoder();
-        }
-        else {
-            logger.error('has not textDecoder to use');
-        }
-        if (options.textEncoder) {
-            this.textEncoder = options.textEncoder;
-        }
-        else if (is.func(TextEncoder)) {
-            this.textEncoder = new TextEncoder();
-        }
-        else {
-            logger.error('has not textEncoder to use');
-        }
         this.ringBuffer = new RingBuffer(options.bufferSize, Uint8Array);
     }
     isDigit(number) {
         return number >= 0x30 && number <= 0x39;
     }
-    encode(text, cmd) {
-        if (this.options.enableCommand && (!is.number(cmd) || cmd < 0)) {
-            throw new Error('need cmd to encode');
+    static encode(payload, cmd) {
+        const enableCommand = is.number(cmd) && cmd >= 0;
+        const leadingString = enableCommand
+            ? `${payload.length + `${cmd}${Token.SPACE_CHAR}`.length}${Token.COLON_CHAR}${cmd}${Token.SPACE_CHAR}`
+            : `${payload.length}${Token.COLON_CHAR}`;
+        const buffer = new Uint8Array(leadingString.length + payload.length + 1);
+        let i;
+        for (i = 0; i < leadingString.length; i++) {
+            buffer[i] = leadingString.charCodeAt(i);
         }
-        if (text.length) {
-            const encodeBuffer = is.string(text) ? this.textEncoder.encode(text) : text;
-            const leadingString = this.options.enableCommand
-                ? `${encodeBuffer.length + `${cmd}${Token.SPACE_CHAR}`.length}${Token.COLON_CHAR}${cmd}${Token.SPACE_CHAR}`
-                : `${encodeBuffer.length}${Token.COLON_CHAR}`;
-            const buffer = new Uint8Array(leadingString.length + encodeBuffer.length + 1);
-            let i = 0;
-            for (i = 0; i < leadingString.length; i++) {
-                buffer[i] = leadingString.charCodeAt(i);
-            }
-            buffer.set(encodeBuffer, i);
-            // ,
-            buffer[i + encodeBuffer.length] = Token.COMMA;
-            return buffer;
-        }
-        else {
-            if (this.options.enableCommand) {
-                return this.textEncoder.encode(`${`${cmd}${Token.SPACE_CHAR}`.length}${Token.COLON_CHAR}${cmd}${Token.SPACE_CHAR}${Token.COMMA_CHAR}`);
-            }
-            else {
-                return this.textEncoder.encode(`0${Token.COLON_CHAR}${Token.COMMA_CHAR}`);
-            }
-        }
+        buffer.set(payload, i);
+        // ,
+        buffer[i + payload.length] = Token.COMMA;
+        return buffer;
     }
     decode(buffer) {
         if (buffer) {
@@ -70,6 +42,7 @@ export default class NetString {
         }
         let len = 0;
         let i = 0;
+        let startPointer = this.ringBuffer.getCurrentPointer();
         if (this.ringBuffer.getLength() >= 3) {
             if (this.ringBuffer.getByteByIndex(0) === 0x30
                 && this.isDigit(this.ringBuffer.getByteByIndex(1))) {
@@ -113,10 +86,15 @@ export default class NetString {
                 if (this.ringBuffer.getByteByIndex(payloadLen) !== Token.COMMA) {
                     throw new Error('miss the comma');
                 }
-                const text = this.textDecoder.decode(this.ringBuffer.read(payloadLen));
+                const payload = this.ringBuffer.read(payloadLen);
                 this.ringBuffer.skip(1);
+                const serialized = this.ringBuffer.readByRange(startPointer, this.ringBuffer.getCurrentPointer());
                 if (this.options.onDecodeText) {
-                    this.options.onDecodeText(text, this.options.enableCommand ? cmd : void 0);
+                    this.options.onDecodeText(this, {
+                        payload,
+                        serialized,
+                        cmd: this.options.enableCommand ? cmd : void 0
+                    });
                 }
                 this.decode();
             }
@@ -126,8 +104,6 @@ export default class NetString {
         }
     }
     destroy() {
-        this.textDecoder = null;
-        this.textEncoder = null;
         this.ringBuffer = null;
         this.options = null;
     }

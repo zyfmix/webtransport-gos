@@ -23,7 +23,7 @@ func ParseNextFrame(r io.Reader) (frame, error) {
 
 	switch t {
 	case 0x0:
-		return &dataFrame{Length: l}, nil
+		return &DataFrame{Length: l}, nil
 	case 0x1:
 		return &HeadersFrame{Length: l}, nil
 	case 0x4:
@@ -47,11 +47,11 @@ func ParseNextFrame(r io.Reader) (frame, error) {
 	}
 }
 
-type dataFrame struct {
+type DataFrame struct {
 	Length uint64
 }
 
-func (f *dataFrame) Write(b *bytes.Buffer) {
+func (f *DataFrame) Write(b *bytes.Buffer) {
 	quicvarint.Write(b, 0x0)
 	quicvarint.Write(b, f.Length)
 }
