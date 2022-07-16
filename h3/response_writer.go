@@ -105,9 +105,9 @@ func (w *responseWriter) Flush() {
 	}
 }
 
-func (w *responseWriter) usedDataStream() bool {
-	return w.dataStreamUsed
-}
+//func (w *responseWriter) usedDataStream() bool {
+//	return w.dataStreamUsed
+//}
 
 func (w *responseWriter) DataStream() quic.Stream {
 	w.dataStreamUsed = true
