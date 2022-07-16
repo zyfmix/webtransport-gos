@@ -36,7 +36,7 @@
                 console.log('onReceive: ', message)
             },
             onOpen: () => {
-                console.log('onOpen: ') 
+                console.log('onOpen: ')
                 if (timer) {
                     clearInterval(timer)
                     timer = null
@@ -53,17 +53,17 @@
                 }
             },
             onError: () => {
-                console.log('onError: ') 
+                console.log('onError: ')
                 if (timer) {
                     clearInterval(timer)
                     timer = null
                 }
             },
             onTimeout: () => {
-                console.log('onTimeout: ') 
+                console.log('onTimeout: ')
             },
             onReconnecting: () => {
-                console.log('onReconnecting: ') 
+                console.log('onReconnecting: ')
             },
             connectOnClose: true,
             retryCount: 3,
@@ -72,7 +72,7 @@
         }
     }
 
-     
+
     const transport = new Transport(getOptions())
 
     transport.connect({
@@ -85,6 +85,6 @@
     //     url
     // })
 
-    
+
 </script>
 </html>

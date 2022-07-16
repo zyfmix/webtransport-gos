@@ -1,0 +1,46 @@
+stages:
+  - golangci-lint
+  - code_quality
+  - code_report
+golangci-lint:
+  tags:
+    - docker
+  stage: golangci-lint
+  image: harbor.baijiayun.com/boom/golangci-lint:v1.44.2
+  artifacts:
+    paths:
+      - report.xml
+  script:
+    - echo "39.106.62.70 git.baijiashilian.com"  >> /etc/hosts
+    - echo "machine git.baijiashilian.com login fengquanguo password Y1UAqAxgg4WG27Hs6RCR \nEOF"  > ~/.netrc
+    - go env -w GO111MODULE=on
+    - go env -w GOPROXY=https://goproxy.cn,direct
+    - go env -w GOPRIVATE=git.baijiashilian.com
+    - go mod tidy
+    - golangci-lint run --timeout=3m --issues-exit-code 0 --out-format checkstyle > report.xml
+  allow_failure: false
+
+SONAR 分析:
+  tags:
+    - docker
+  stage: code_quality
+  dependencies: ["golangci-lint"]
+  image: harbor.baijiayun.com/sonar-scanner/sonar-scanner-cli:latest
+  variables:
+    SONAR_USER_HOME: "${CI_PROJECT_DIR}/.sonar" # Defines the location of the analysis task cache
+    GIT_DEPTH: "0" # Tells git to fetch all the branches of the project, required by the analysis task
+  script:
+    - sonar-scanner -Dsonar.verbose=false -Dsonar.exclusions=example/** -Dsonar.qualitygate.wait=true -Dsonar.projectKey=${PROJECT_KEY} -Dsonar.go.golangci-lint.reportPaths=report.xml
+  allow_failure: true
+  only:
+    - merge_requests
+    - master
+    - wsjsonrpc
+
+SONAR 报告:
+  tags:
+    - docker
+  stage: code_report
+  image: ${DOCKER_REGISTRY}/cicd/sonarnotify:latest
+  script:
+    - sonarnotify

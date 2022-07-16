@@ -6,4 +6,4 @@ node_modules
 # .vscode
 .scannerwork
 .vscode/
-.idea/
+.idea
