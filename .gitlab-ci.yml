@@ -35,7 +35,7 @@ SONAR 分析:
   only:
     - merge_requests
     - master
-    - wsjonrpc
+    - wsjsonrpc
 
 SONAR 报告:
   tags:
