@@ -323,7 +323,7 @@ func (transport *WebTransport) Close(code quic.ApplicationErrorCode, message str
 	if transport.session == nil {
 		return errors.New("session is not opened")
 	}
-	err := transport.session.CloseWithError(code, message)
+	//err := transport.session.CloseWithError(code, message)
 	transport.close()
-	return err
+	return nil
 }
