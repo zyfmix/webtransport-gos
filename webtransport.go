@@ -242,6 +242,10 @@ func createWebTransport(session quic.Session, req *http.Request, connectStream q
 }
 
 func (transport *WebTransport) CreateStream() (quic.Stream, error) {
+	if transport.session == nil {
+		return nil, errors.New("session is nil")
+	}
+
 	stream, err := transport.session.OpenStream()
 
 	if err != nil {
@@ -259,6 +263,9 @@ func (transport *WebTransport) CreateStream() (quic.Stream, error) {
 }
 
 func (transport *WebTransport) CreateUniStream() (quic.SendStream, error) {
+	if transport.session == nil {
+		return nil, errors.New("session is nil")
+	}
 
 	stream, err := transport.session.OpenUniStream()
 
@@ -280,6 +287,10 @@ func (transport *WebTransport) SendMessage(message []byte) error {
 
 	quicvarint.Write(buf, transport.sessionId)
 	buf.Write(message)
+
+	if transport.session == nil {
+		return errors.New("session is nil")
+	}
 
 	return transport.session.SendMessage(buf.Bytes())
 }
