@@ -98,23 +98,18 @@ func (client *WebTransportClient) Connect() error {
 	client.session = session
 
 	stream, err := session.AcceptUniStream(context.Background())
-
 	if err != nil {
-
 		return err
 	}
 
 	buf := make([]byte, 1)
-
 	n, err := stream.Read(buf)
-
 	if err != nil || n == 0 {
 		log.Printf("data stream err: %v", err)
 		return err
 	}
 
 	frame, err := h3.ParseNextFrame(stream)
-
 	if err != nil {
 		log.Printf("request stream ParseNextFrame err: %v", err)
 		return err
@@ -172,14 +167,12 @@ func (client *WebTransportClient) Connect() error {
 			Header: http.Header{},
 			Body:   nil,
 		}, false)
-
 		if err != nil {
 			log.Println("request frame failed")
 			return err
 		}
 
 		resFrame, err := h3.ParseNextFrame(requestStream)
-
 		if err != nil {
 			log.Println("parse response frame failed")
 			return err
@@ -201,7 +194,6 @@ func (client *WebTransportClient) Connect() error {
 		}
 
 		res, err := h3.ResponseFromHeaders(hfs)
-
 		if err != nil {
 			log.Println("parse response failed")
 			return err
@@ -226,17 +218,18 @@ func (client *WebTransportClient) handleStream() {
 	go func() {
 		for {
 			stream, err := client.session.AcceptUniStream(client.session.Context())
+			log.Printf("[AcceptUniStream]client accepted for streamId: %d", stream.StreamID())
 			if err != nil {
 				client.close()
 				return
 			}
 
 			if stream.StreamID() == client.settingsStream.StreamID() {
+				log.Printf("[AcceptUniStream]accepted settingsStream streamId: %d", stream.StreamID())
 				continue
 			}
 
 			go func(stream quic.ReceiveStream) {
-
 				br, ok := stream.(byteReader)
 				if !ok {
 					br = &byteReaderImpl{stream}
@@ -251,26 +244,25 @@ func (client *WebTransportClient) handleStream() {
 				}
 
 				if streamType == WebTransportUniStream {
-
-					log.Printf("receiveStream accepted streamId: %d, sessionId: %d", stream.StreamID(), sessionId)
-
+					log.Printf("[AcceptUniStream]receiveStream accepted streamId: %d, sessionId: %d", stream.StreamID(), sessionId)
 					client.ReceiveStream <- stream
 				}
 
 			}(stream)
-
 		}
 	}()
 
 	go func() {
 		for {
 			stream, err := client.session.AcceptStream(client.session.Context())
+			log.Printf("[AcceptStream]client accepted for streamId: %d", stream.StreamID())
 			if err != nil {
 				client.close()
 				return
 			}
 
 			if stream.StreamID() == client.connectStream.StreamID() {
+				log.Printf("[AcceptUniStream]accepted connectStream streamId: %d", stream.StreamID())
 				continue
 			}
 
@@ -289,9 +281,7 @@ func (client *WebTransportClient) handleStream() {
 				}
 
 				if streamType == WebTransportStream {
-
-					log.Printf("stream accepted streamId: %d, sessionId: %d", stream.StreamID(), sessionId)
-
+					log.Printf("[AcceptStream]stream accepted streamId: %d, sessionId: %d", stream.StreamID(), sessionId)
 					client.Stream <- stream
 				}
 			}(stream)
@@ -301,15 +291,13 @@ func (client *WebTransportClient) handleStream() {
 	go func() {
 		for {
 			msg, err := client.session.ReceiveMessage()
-
 			if err != nil {
 				client.close()
 				return
 			}
+			log.Printf("[webtransport_client]received message: %v", string(msg))
 
-			len := len(msg)
-
-			if len > 0 {
+			if len(msg) > 0 {
 				// TODO https://datatracker.ietf.org/doc/draft-ietf-webtrans-http3/ Session Termination 结束 session
 				if client.OnMessage != nil {
 					client.OnMessage(msg)
@@ -322,7 +310,6 @@ func (client *WebTransportClient) handleStream() {
 		buf := make([]byte, 1024)
 		for {
 			n, err := client.connectStream.Read(buf)
-
 			if n > 0 {
 				log.Printf("connect stream accepted data, but ignore")
 			}
@@ -340,16 +327,13 @@ func (client *WebTransportClient) handleStream() {
 }
 
 func (client *WebTransportClient) CreateStream() (quic.Stream, error) {
-
 	if client.connected {
 		stream, err := client.session.OpenStream()
-
 		if err != nil {
 			return nil, err
 		}
 
 		buf := &bytes.Buffer{}
-
 		quicvarint.Write(buf, WebTransportStream)
 		quicvarint.Write(buf, client.sessionId)
 
@@ -357,13 +341,13 @@ func (client *WebTransportClient) CreateStream() (quic.Stream, error) {
 
 		return stream, nil
 	}
+
 	return nil, errors.New("client not connect")
 }
 
 func (client *WebTransportClient) CreateUniStream() (quic.SendStream, error) {
 	if client.connected {
 		stream, err := client.session.OpenUniStream()
-
 		if err != nil {
 			return nil, err
 		}
@@ -371,9 +355,12 @@ func (client *WebTransportClient) CreateUniStream() (quic.SendStream, error) {
 		buf := &bytes.Buffer{}
 		quicvarint.Write(buf, WebTransportUniStream)
 		quicvarint.Write(buf, client.sessionId)
+
 		stream.Write(buf.Bytes())
+
 		return stream, nil
 	}
+
 	return nil, errors.New("client not connect")
 }
 

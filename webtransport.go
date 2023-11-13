@@ -80,16 +80,14 @@ func createWebTransport(session quic.Session, req *http.Request, connectStream q
 			}
 
 			if stream.StreamID() == transport.settingsStream.StreamID() {
+				log.Printf("[AcceptUniStream]createWebTransport.accepted connectStream streamId: %d", stream.StreamID())
 				continue
 			}
 
 			go func(stream quic.ReceiveStream) {
-
 				ctx := context.Background()
 				done := make(chan struct{}, 1)
-
 				go func(ctx context.Context) {
-
 					defer func() {
 						done <- struct{}{}
 					}()
@@ -108,8 +106,7 @@ func createWebTransport(session quic.Session, req *http.Request, connectStream q
 					}
 
 					if streamType == WebTransportUniStream {
-
-						log.Printf("receiveStream accepted streamId: %d, sessionId: %d", stream.StreamID(), sessionId)
+						log.Printf("[AcceptStream.WebTransportUniStream]receiveStream accepted streamId: %d, sessionId: %d", stream.StreamID(), sessionId)
 
 						transport.sessionId = sessionId
 						transport.ReceiveStream <- stream
@@ -142,14 +139,13 @@ func createWebTransport(session quic.Session, req *http.Request, connectStream q
 			}
 
 			if stream.StreamID() == transport.connectStream.StreamID() {
+				log.Printf("[AcceptStream]createWebTransport.accepted connectStream streamId: %d", stream.StreamID())
 				continue
 			}
 
 			go func(stream quic.Stream) {
-
 				ctx := context.Background()
 				done := make(chan struct{}, 1)
-
 				go func(ctx context.Context) {
 					defer func() {
 						done <- struct{}{}
@@ -169,8 +165,7 @@ func createWebTransport(session quic.Session, req *http.Request, connectStream q
 					}
 
 					if streamType == WebTransportStream {
-
-						log.Printf("stream accepted streamId: %d, sessionId: %d", stream.StreamID(), sessionId)
+						log.Printf("[AcceptStream.WebTransportStream]stream accepted streamId: %d, sessionId: %d", stream.StreamID(), sessionId)
 
 						transport.sessionId = sessionId
 						transport.Stream <- stream
@@ -191,27 +186,24 @@ func createWebTransport(session quic.Session, req *http.Request, connectStream q
 	go func() {
 		for {
 			msg, err := session.ReceiveMessage()
-
 			if err != nil {
 				transport.close()
 				return
 			}
+			log.Printf("[webtransport]received message: %v", string(msg))
 
-			len := len(msg)
-
-			if len > 0 {
+			if len(msg) > 0 {
 				// TODO https://datatracker.ietf.org/doc/draft-ietf-webtrans-http3/ Session Termination 结束 session
 				if transport.OnMessage != nil {
-
 					buf := &bytes.Buffer{}
 					buf.Write(msg)
 
 					sessionId, err := quicvarint.Read(buf)
-
 					if err != nil || sessionId != transport.sessionId {
 						log.Printf("received message format error, ignore it, sessionId: %d", sessionId)
 						continue
 					}
+
 					transport.OnMessage(buf.Bytes())
 				}
 			}
@@ -222,7 +214,6 @@ func createWebTransport(session quic.Session, req *http.Request, connectStream q
 		buf := make([]byte, 1024)
 		for {
 			n, err := connectStream.Read(buf)
-
 			if n > 0 {
 				log.Printf("connect stream accepted data, but ignore")
 			}

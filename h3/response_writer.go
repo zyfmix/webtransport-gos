@@ -38,7 +38,6 @@ var (
 )
 
 func NewResponseWriter(stream quic.Stream) *responseWriter {
-
 	return &responseWriter{
 		header:         http.Header{},
 		stream:         stream,
