@@ -122,7 +122,6 @@ func createWebTransport(session quic.Session, req *http.Request, connectStream q
 				}
 
 			}(stream)
-
 		}
 	}()
 
@@ -190,7 +189,7 @@ func createWebTransport(session quic.Session, req *http.Request, connectStream q
 				transport.close()
 				return
 			}
-			log.Printf("[webtransport]received message: %v", string(msg))
+			log.Printf("[webtransport]ReceiveMessage: %v", string(msg))
 
 			if len(msg) > 0 {
 				// TODO https://datatracker.ietf.org/doc/draft-ietf-webtrans-http3/ Session Termination 结束 session
@@ -200,7 +199,7 @@ func createWebTransport(session quic.Session, req *http.Request, connectStream q
 
 					sessionId, err := quicvarint.Read(buf)
 					if err != nil || sessionId != transport.sessionId {
-						log.Printf("received message format error, ignore it, sessionId: %d", sessionId)
+						log.Printf("[webtransport]ReceiveMessage format error, ignore it, sessionId: %d", sessionId)
 						continue
 					}
 
@@ -211,11 +210,11 @@ func createWebTransport(session quic.Session, req *http.Request, connectStream q
 	}()
 
 	go func() {
-		buf := make([]byte, 1024)
 		for {
+			buf := make([]byte, 1024)
 			n, err := connectStream.Read(buf)
 			if n > 0 {
-				log.Printf("connect stream accepted data, but ignore")
+				log.Printf("[webtransport]connect stream accepted data, but ignore,read message: (n: %d)%v", n, string(buf))
 			}
 
 			if err == io.EOF {

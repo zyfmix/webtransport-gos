@@ -4,8 +4,8 @@ var path = require('path');
 exports.port = 9000;
 exports.protocol = 'https';
 exports.tlsOptions = {
-    key: fs.readFileSync(path.join(__dirname, '/key.pem')),
-    cert: fs.readFileSync(path.join(__dirname, '/cert.pem'))
+    key: fs.readFileSync(path.join(__dirname, '/../data/certs/baijiayun.com.key')),
+    cert: fs.readFileSync(path.join(__dirname, '/../data/certs/baijiayun.com.crt'))
 };
 exports.directoryIndexes = true;
 exports.documentRoot = __dirname;

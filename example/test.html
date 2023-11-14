@@ -17,7 +17,9 @@
   
 </body>
 <script>
-    const url = 'https://localhost:4433/counter';
+    // const url = 'https://brtc-psdev.baijiayun.com:4433/counter';
+    const url = 'https://brtc-pslocal.baijiayun.com:4433/counter';
+    // const url = 'https://172.27.12.108:4433/counter';
     const transport = new WebTransport(url);
     transport.closed.then(() => {
         console.log(`The HTTP/3 connection to ${url} closed gracefully.`);
@@ -55,10 +57,14 @@
     } 
 
     async function write() {
-        // uniWriter.write(textEncoder.encode('hello'))
+        uniWriter.write(textEncoder.encode('hello'))
         uniWriter.write(textEncoder.encode('123'))
         uniWriter.write(textEncoder.encode('456'))
         uniWriter.write(textEncoder.encode('789'))
+        uniWriter.write(textEncoder.encode('abc'))
+        uniWriter.write(textEncoder.encode('111'))
+        uniWriter.write(textEncoder.encode('222'))
+        uniWriter.write(textEncoder.encode('333'))
 
         bidWriter.write(textEncoder.encode('zhaogaoxing'))
         bidWriter.write(textEncoder.encode('哈哈哈'))
@@ -89,6 +95,9 @@
                 break;
             }
             _read(value.getReader(), 'receiveUniReader')
+
+            // const writer = value.writable.getWriter()
+            // await writer.write(textEncoder.encode('receiveUniReader test'))
         }
     }
 

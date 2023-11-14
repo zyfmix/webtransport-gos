@@ -74,7 +74,6 @@ func CreateWebTransportClient(config ClientConfig) *WebTransportClient {
 	}
 }
 
-// connect client.
 func (client *WebTransportClient) Connect() error {
 	session, err := quic.DialAddr(
 		client.RemoteAddr,
@@ -90,26 +89,25 @@ func (client *WebTransportClient) Connect() error {
 			KeepAlive:            client.KeepAlive,
 		},
 	)
-
 	if err != nil {
 		return err
 	}
 
 	client.session = session
 
-	stream, err := session.AcceptUniStream(context.Background())
+	acceptUniStream, err := session.AcceptUniStream(context.Background())
 	if err != nil {
 		return err
 	}
 
 	buf := make([]byte, 1)
-	n, err := stream.Read(buf)
+	n, err := acceptUniStream.Read(buf)
 	if err != nil || n == 0 {
 		log.Printf("data stream err: %v", err)
 		return err
 	}
 
-	frame, err := h3.ParseNextFrame(stream)
+	frame, err := h3.ParseNextFrame(acceptUniStream)
 	if err != nil {
 		log.Printf("request stream ParseNextFrame err: %v", err)
 		return err
@@ -121,97 +119,97 @@ func (client *WebTransportClient) Connect() error {
 		return errors.New("server stream got not SettingsFrame")
 	}
 
-	client.settingsStream = stream
+	client.settingsStream = acceptUniStream
 
 	// 判断 server 是否支持 webtransport
-	if settingsFrame.Other[H3_DATAGRAM_05] == 1 && settingsFrame.Other[ENABLE_WEBTRNASPORT] == 1 && settingsFrame.Other[ENABLE_CONNECT_PROTOCOL] == 1 {
-
-		stream, err := session.OpenUniStreamSync(context.Background())
-		if err != nil {
-			log.Println("create settingStream failed")
-			return err
-		}
-
-		// 发送Setting帧
-		buf := &bytes.Buffer{}
-		// stream type
-		quicvarint.Write(buf, 0)
-		(&h3.SettingsFrame{
-			Datagram: true,
-			Other: map[uint64]uint64{
-				uint64(H3_DATAGRAM_05):          uint64(1),
-				uint64(ENABLE_CONNECT_PROTOCOL): uint64(1),
-				uint64(ENABLE_WEBTRNASPORT):     uint64(1),
-			},
-		}).Write(buf)
-		stream.Write(buf.Bytes())
-
-		requestStream, err := session.OpenStreamSync(context.Background())
-		if err != nil {
-			log.Println("create connectStream failed")
-			return err
-		}
-
-		client.connectStream = requestStream
-
-		requestWriter := h3.NewRequestWriter()
-
-		err = requestWriter.WriteRequest(requestStream, &http.Request{
-			Method: "CONNECT",
-			Proto:  "webtransport",
-			URL: &url.URL{
-				Path:   client.Path,
-				Scheme: "https",
-			},
-			Host:   client.RemoteAddr,
-			Header: http.Header{},
-			Body:   nil,
-		}, false)
-		if err != nil {
-			log.Println("request frame failed")
-			return err
-		}
-
-		resFrame, err := h3.ParseNextFrame(requestStream)
-		if err != nil {
-			log.Println("parse response frame failed")
-			return err
-		}
-
-		hf, ok := resFrame.(*h3.HeadersFrame)
-		if !ok {
-			log.Println("expected first frame to be a HEADERS frame")
-			return errors.New("server stream got not HeadersFrame")
-		}
-		headerBlock := make([]byte, hf.Length)
-		if _, err := io.ReadFull(requestStream, headerBlock); err != nil {
-			return err
-		}
-		decoder := qpack.NewDecoder(nil)
-		hfs, err := decoder.DecodeFull(headerBlock)
-		if err != nil {
-			return err
-		}
-
-		res, err := h3.ResponseFromHeaders(hfs)
-		if err != nil {
-			log.Println("parse response failed")
-			return err
-		}
-
-		if res.StatusCode == 200 {
-			client.connected = true
-			client.handleStream()
-		} else {
-			log.Println("request connect failed")
-			return errors.New("request connect failed")
-		}
-
-		return nil
-	} else {
+	if settingsFrame.Other[H3_DATAGRAM_05] != 1 || settingsFrame.Other[ENABLE_WEBTRNASPORT] != 1 || settingsFrame.Other[ENABLE_CONNECT_PROTOCOL] != 1 {
 		log.Println("server not support webtransport")
 		return errors.New("server not support webtransport")
 	}
+
+	openUniStream, err := session.OpenUniStreamSync(context.Background())
+	if err != nil {
+		log.Println("create settingStream failed")
+		return err
+	}
+
+	// 发送Setting帧
+	sbuf := &bytes.Buffer{}
+	// stream type
+	quicvarint.Write(sbuf, 0)
+	(&h3.SettingsFrame{
+		Datagram: true,
+		Other: map[uint64]uint64{
+			uint64(H3_DATAGRAM_05):          uint64(1),
+			uint64(ENABLE_CONNECT_PROTOCOL): uint64(1),
+			uint64(ENABLE_WEBTRNASPORT):     uint64(1),
+		},
+	}).Write(sbuf)
+	openUniStream.Write(sbuf.Bytes())
+
+	requestStream, err := session.OpenStreamSync(context.Background())
+	if err != nil {
+		log.Println("create connectStream failed")
+		return err
+	}
+
+	client.connectStream = requestStream
+
+	requestWriter := h3.NewRequestWriter()
+
+	err = requestWriter.WriteRequest(requestStream, &http.Request{
+		Method: "CONNECT",
+		Proto:  "webtransport",
+		URL: &url.URL{
+			Path:   client.Path,
+			Scheme: "https",
+		},
+		Host:   client.RemoteAddr,
+		Header: http.Header{},
+		Body:   nil,
+	}, false)
+	if err != nil {
+		log.Println("request frame failed")
+		return err
+	}
+
+	resFrame, err := h3.ParseNextFrame(requestStream)
+	if err != nil {
+		log.Println("parse response frame failed")
+		return err
+	}
+
+	hf, ok := resFrame.(*h3.HeadersFrame)
+	if !ok {
+		log.Println("expected first frame to be a HEADERS frame")
+		return errors.New("server stream got not HeadersFrame")
+	}
+	headerBlock := make([]byte, hf.Length)
+	if _, err := io.ReadFull(requestStream, headerBlock); err != nil {
+		return err
+	}
+	decoder := qpack.NewDecoder(nil)
+	hfs, err := decoder.DecodeFull(headerBlock)
+	if err != nil {
+		return err
+	}
+
+	res, err := h3.ResponseFromHeaders(hfs)
+	if err != nil {
+		log.Println("parse response failed")
+		return err
+	}
+
+	if res.StatusCode != 200 {
+		log.Println("request connect failed")
+		return errors.New("request connect failed")
+	}
+
+	client.connected = true
+	client.handleStream()
+
+	return nil
+
 }
 
 func (client *WebTransportClient) handleStream() {
@@ -307,11 +305,11 @@ func (client *WebTransportClient) handleStream() {
 	}()
 
 	go func() {
-		buf := make([]byte, 1024)
 		for {
+			buf := make([]byte, 1024)
 			n, err := client.connectStream.Read(buf)
 			if n > 0 {
-				log.Printf("connect stream accepted data, but ignore")
+				log.Printf("[webtransport_client]connect stream accepted data, but ignore,read message: (n: %d)%v", n, string(buf))
 			}
 
 			if err == io.EOF {

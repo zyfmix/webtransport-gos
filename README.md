@@ -33,6 +33,8 @@ client 端参照 example/client/client.go
 
 6. 访问 https://localhost:9000
 
+> https://brtc-pslocal.baijiayun.com:9000/test.html
+
 #### Features
 
 - [x] server

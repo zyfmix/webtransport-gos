@@ -95,6 +95,7 @@ func main() {
 	//}`)
 
 	for {
+		//client.SendMessage(msg.Serialized)
 		stream.Write(msg.Serialized)
 		//stream.Write(data)
 		time.Sleep(time.Duration(1 * time.Second))
