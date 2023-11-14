@@ -4,21 +4,22 @@
     <meta charset="UTF-8">
     <title>test</title>
     <style>
-      html,
-      body {
-        margin: 0;
-        padding: 0;
-        width: 100%;
-        height: 100%;
-      }
-      #canvas {
-          width: 1600px;
-          height: 1200px;
-      }
+        html,
+        body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        #canvas {
+            width: 1600px;
+            height: 1200px;
+        }
     </style>
 </head>
 <body>
-    <div id="canvas"></div>
+<div id="canvas"></div>
 </body>
 <script src="https://cdn.jsdelivr.net/npm/echarts@5.3.0/dist/echarts.min.js"></script>
 <script type="module">
@@ -31,7 +32,8 @@
     import WebTransportWS from './bjy-common/lib/helper/WebTransportWS.js'
 
     // const webtransportUrl = 'https://172.31.102.131:4433/room';
-    const webtransportUrl = 'https://localhost:4433/room';
+    // const webtransportUrl = 'https://localhost:4433/room';
+    const webtransportUrl = 'https://brtc-pslocal.baijiayun.com:4433/room';
 
     // const websocketUrl = 'wss://172.31.102.131:8121/room';
     const websocketUrl = 'wss://localhost:8121/room';
@@ -46,7 +48,7 @@
             text += payload
         }
         return {
-            payload: text 
+            payload: text
         }
     }
 
@@ -56,6 +58,7 @@
     function canDraw() {
         let can = true
         webtransportData.forEach(item => {
+            console.log('item.length:', item.length)
             if (item && item.length < length) {
                 can = false
                 return false
@@ -77,7 +80,7 @@
                 allowPooling: true,
             },
             onReceive: (message) => {
-
+                console.log('getOptions.onReceive.streamCount:', streamCount)
                 const data = isWebsocket ? websocketData : webtransportData[streamCount]
 
                 const now = Date.now()
@@ -86,8 +89,7 @@
 
                 if (canDraw()) {
                     draw()
-                }
-                else if (opened && data.length < length) {
+                } else if (opened && data.length < length) {
                     timeout = setTimeout(() => {
                         const transport = isWebsocket ? websocket : webtransport[streamCount]
                         sendTimestamp = Date.now()
@@ -118,12 +120,12 @@
                 opened = false
             },
             onTimeout: () => {
-                console.log('onTimeout: ') 
+                console.log('onTimeout: ')
                 opened = false
             },
             onReconnecting: () => {
                 console.log('onReconnecting: ')
-                opened = false 
+                opened = false
             },
             connectOnClose: true,
             retryCount: 30,
@@ -132,7 +134,7 @@
         }
     }
 
-     
+
     webtransport[1] = new Transport(getOptions(false, 1, getPayload(1)))
     webtransportData[1] = []
     webtransport[1].connect({
